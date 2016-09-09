@@ -143,9 +143,8 @@ namespace Box2DNet.Collision
 		{
 			SetAsBox(hx, hy);
 
-			XForm xf = new XForm();
-			xf.Position = center;
-			xf.R.Set(angle);
+		    XForm xf = new XForm {Position = center};
+		    xf.R.Set(angle);
 
 			// Transform vertices and normals.
 			for (int i = 0; i < _vertexCount; ++i)
@@ -445,10 +444,7 @@ namespace Box2DNet.Collision
 			while (i != outoIndex2)
 			{
 				i = (i + 1) % _vertexCount;
-				if (i == outoIndex2)
-					p3 = outoVec;
-				else
-					p3 = _vertices[i];
+				p3 = i == outoIndex2 ? outoVec : _vertices[i];
 				//Add the triangle formed by intoVec,p2,p3
 				{
 					Vec2 e1 = p2 - intoVec;

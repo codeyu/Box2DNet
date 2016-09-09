@@ -30,6 +30,8 @@ using OpenTK;
 using OpenTK.Graphics;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Input;
+using Math = Box2DNet.Common.Math;
+
 namespace TestBed
 {
 	public delegate Test TestCreateFcn();
@@ -122,7 +124,7 @@ namespace TestBed
 	// nullify the mouse joint.
 	public class MyDestructionListener : DestructionListener
 	{
-		public override void SayGoodbye(Fixture shape) { ; }
+        public override void SayGoodbye(Fixture shape) {  }
 		public override void SayGoodbye(Joint joint)
 		{
 			if (test._mouseJoint == joint)
@@ -151,74 +153,167 @@ namespace TestBed
 		public Test test;
 	}
 
-	public struct ContactPoint
-	{
-		public Fixture fixtureA;
-		public Fixture fixtureB;
-		public Vec2 normal;
-		public Vec2 position;
-		public PointState state;
-	}
 
-	/*public class MyContactListener : ContactListener
-	{
-		public override void Add(ContactPoint point)
-		{
-			if (test._pointCount == Test.k_maxContactPoints)
-			{
-				return;
-			}
+    public class MyContactListener : ContactListener
+    {
+        public override void Add(ContactPoint point)
+        {
+            if (test._pointCount == Test.k_maxContactPoints)
+            {
+                return;
+            }
 
-			MyContactPoint cp = new MyContactPoint();
-			cp.shape1 = point.Shape1;
-			cp.shape2 = point.Shape2;
-			cp.position = point.Position;
-			cp.normal = point.Normal;
-			cp.id = point.ID;
-			cp.state = ContactState.ContactAdded;
-			test._points[test._pointCount] = cp;
-			++test._pointCount;
-		}
+            MyContactPoint cp = new MyContactPoint();
+            cp.shape1 = point.Shape1;
+            cp.shape2 = point.Shape2;
+            cp.position = point.Position;
+            cp.normal = point.Normal;
+            cp.id = point.ID;
+            cp.state = ContactState.ContactAdded;
+            test._points[test._pointCount] = cp;
+            ++test._pointCount;
+        }
 
-		public override void Persist(ContactPoint point)
-		{
-			if (test._pointCount == Test.k_maxContactPoints)
-			{
-				return;
-			}
+        public override void Persist(ContactPoint point)
+        {
+            if (test._pointCount == Test.k_maxContactPoints)
+            {
+                return;
+            }
 
-			MyContactPoint cp = new MyContactPoint();
-			cp.shape1 = point.Shape1;
-			cp.shape2 = point.Shape2;
-			cp.position = point.Position;
-			cp.normal = point.Normal;
-			cp.id = point.ID;
-			cp.state = ContactState.ContactPersisted;
-			test._points[test._pointCount] = cp;
-			++test._pointCount;
-		}
+            MyContactPoint cp = new MyContactPoint();
+            cp.shape1 = point.Shape1;
+            cp.shape2 = point.Shape2;
+            cp.position = point.Position;
+            cp.normal = point.Normal;
+            cp.id = point.ID;
+            cp.state = ContactState.ContactPersisted;
+            test._points[test._pointCount] = cp;
+            ++test._pointCount;
+        }
 
-		public override void Remove(ContactPoint point)
-		{
-			if (test._pointCount == Test.k_maxContactPoints)
-			{
-				return;
-			}
+        public override void Remove(ContactPoint point)
+        {
+            if (test._pointCount == Test.k_maxContactPoints)
+            {
+                return;
+            }
 
-			MyContactPoint cp = new MyContactPoint();
-			cp.shape1 = point.Shape1;
-			cp.shape2 = point.Shape2;
-			cp.position = point.Position;
-			cp.normal = point.Normal;
-			cp.id = point.ID;
-			cp.state = ContactState.ContactRemoved;
-			test._points[test._pointCount] = cp;
-			++test._pointCount;
-		}
+            MyContactPoint cp = new MyContactPoint();
+            cp.shape1 = point.Shape1;
+            cp.shape2 = point.Shape2;
+            cp.position = point.Position;
+            cp.normal = point.Normal;
+            cp.id = point.ID;
+            cp.state = ContactState.ContactRemoved;
+            test._points[test._pointCount] = cp;
+            ++test._pointCount;
+        }
 
-		public Test test;
-	}*/
+        public Test test;
+    }
+    public class MyContactListener2 : IContactListener
+    {
+        
 
+        public Test test;
+        public void BeginContact(Contact contact)
+        {
+            //Fixture fixtureA = contact.FixtureA;
+            //Fixture fixtureB = contact.FixtureB;
+
+            //if (fixtureA == m_sensor)
+            //{
+            //    Object userData = fixtureB.Body.GetUserData();
+            //    if (userData != null)
+            //    {
+            //        ((BoolWrapper)userData).tf = true;
+            //    }
+            //}
+
+            //if (fixtureB == m_sensor)
+            //{
+            //    Object userData = fixtureA.Body.GetUserData();
+            //    if (userData != null)
+            //    {
+            //        ((BoolWrapper)userData).tf = true;
+            //    }
+            //}
+        }
+
+        public void EndContact(Contact contact)
+        {
+            //Fixture fixtureA = contact.getFixtureA();
+            //Fixture fixtureB = contact.getFixtureB();
+
+            //if (fixtureA == m_sensor)
+            //{
+            //    Object userData = fixtureB.getBody().getUserData();
+            //    if (userData != null)
+            //    {
+            //        ((BoolWrapper)userData).tf = false;
+            //    }
+            //}
+
+            //if (fixtureB == m_sensor)
+            //{
+            //    Object userData = fixtureA.getBody().getUserData();
+            //    if (userData != null)
+            //    {
+            //        ((BoolWrapper)userData).tf = false;
+            //    }
+            //}
+        }
+
+        public void PreSolve(Contact contact, Manifold oldManifold)
+        {
+            //base.preSolve(contact, oldManifold);
+
+            //Fixture fixtureA = contact.getFixtureA();
+            //Fixture fixtureB = contact.getFixtureB();
+
+            //if (fixtureA != m_platform && fixtureA != m_character)
+            //{
+            //    return;
+            //}
+
+            //if (fixtureB != m_character && fixtureB != m_character)
+            //{
+            //    return;
+            //}
+
+            //Vec2 position = m_character.getBody().getPosition();
+
+            //if (position.y < m_top + m_radius - 3.0f * Settings.linearSlop)
+            //{
+            //    contact.setEnabled(false);
+            //}
+        }
+
+        public void PostSolve(Contact contact, ContactImpulse impulse)
+        {
+            //if (m_broke)
+            //{
+            //    // The body already broke.
+            //    return;
+            //}
+
+            //// Should the body break?
+            //int count = contact.Manifold.PointCount;
+
+            //float maxImpulse = 0.0f;
+            //for (int i = 0; i < count; ++i)
+            //{
+            //    maxImpulse = Math.Max(maxImpulse, impulse.normalImpulses[i]);
+            //}
+
+            //if (maxImpulse > 40.0f)
+            //{
+            //    // Flag the body for breaking.
+            //    m_break = true;
+            //}
+        }
+    }
 	public class Test : IDisposable
 	{
 		public static TestEntry[] g_testEntries = new TestEntry[]
@@ -267,7 +362,7 @@ namespace TestBed
 		internal int _pointCount;
 		protected MyDestructionListener _destructionListener = new MyDestructionListener();
 		protected MyBoundaryListener _boundaryListener = new MyBoundaryListener();
-		//protected MyContactListener _contactListener = new MyContactListener();
+		protected MyContactListener _contactListener = new MyContactListener();
 		internal DebugDraw _debugDraw = new OpenGLDebugDraw();
 		protected int _textLine;
 		internal World _world;
@@ -290,10 +385,10 @@ namespace TestBed
 
 			_destructionListener.test = this;
 			_boundaryListener.test = this;
-			//_contactListener.test = this;
+			_contactListener.test = this;
 			_world.SetDestructionListener(_destructionListener);
 			_world.SetBoundaryListener(_boundaryListener);
-			//_world.SetContactListener(_contactListener);
+			_world.SetContactListener(_contactListener);
 			_world.SetDebugDraw(_debugDraw);
 		}
 
@@ -387,26 +482,26 @@ namespace TestBed
 
 		public void LaunchBomb()
 		{
-			/*if (_bomb != null)
-			{
-				_world.DestroyBody(_bomb);
-				_bomb = null;
-			}
+            if (_bomb != null)
+            {
+                _world.DestroyBody(_bomb);
+                _bomb = null;
+            }
 
-			BodyDef bd = new BodyDef();
-			bd.AllowSleep = true;
-			bd.Position.Set(Box2DNet.Common.Math.Random(-15.0f, 15.0f), 30.0f);
-			bd.IsBullet = true;
-			_bomb = _world.CreateBody(bd);
-			_bomb.SetLinearVelocity(-5.0f * bd.Position);
+            BodyDef bd = new BodyDef();
+            bd.AllowSleep = true;
+            bd.Position.Set(Box2DNet.Common.Math.Random(-15.0f, 15.0f), 30.0f);
+            bd.IsBullet = true;
+            _bomb = _world.CreateBody(bd);
+            _bomb.SetLinearVelocity(-5.0f * bd.Position);
 
-			CircleDef sd = new CircleDef();
-			sd.Radius = 0.3f;
-			sd.Density = 20.0f;
-			sd.Restitution = 0.1f;
-			_bomb.CreateFixture(sd);
+            CircleDef sd = new CircleDef();
+            sd.Radius = 0.3f;
+            sd.Density = 20.0f;
+            sd.Restitution = 0.1f;
+            _bomb.CreateFixture(sd);
 
-			_bomb.SetMassFromShapes();*/
+            _bomb.SetMassFromShapes();
 		}
 
 		public virtual void Step(Settings settings)

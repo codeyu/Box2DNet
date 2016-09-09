@@ -133,10 +133,12 @@ namespace Box2DNet.Common
 			float det = a11 * a22 - a12 * a21;
 			Box2DNetDebug.Assert(det != 0.0f);
 			det = 1.0f / det;
-			Vec2 x = new Vec2();
-			x.X = det * (a22 * b.X - a12 * b.Y);
-			x.Y = det * (a11 * b.Y - a21 * b.X);
-			return x;
+		    Vec2 x = new Vec2
+		    {
+		        X = det*(a22*b.X - a12*b.Y),
+		        Y = det*(a11*b.Y - a21*b.X)
+		    };
+		    return x;
 		}
 
 		public static Mat22 Identity { get { return new Mat22(1, 0, 0, 1); } }

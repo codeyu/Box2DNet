@@ -201,9 +201,8 @@ namespace Box2DNet.Collision
 			float target = 0.0f;
 
 			// Prepare input for distance query.
-			SimplexCache cache = new SimplexCache();
-			cache.Count = 0;
-			DistanceInput distanceInput;
+		    SimplexCache cache = new SimplexCache {Count = 0};
+		    DistanceInput distanceInput;
 			distanceInput.UseRadii = false;
 
 			for (; ; )
@@ -242,14 +241,7 @@ namespace Box2DNet.Collision
 					// Compute a reasonable target distance to give some breathing room
 					// for conservative advancement. We take advantage of the shape radii
 					// to create additional clearance.
-					if (separation > radius)
-					{
-						target = Common.Math.Max(radius - tolerance, 0.75f * radius);
-					}
-					else
-					{
-						target = Common.Math.Max(separation - tolerance, 0.02f * radius);
-					}
+					target = separation > radius ? Common.Math.Max(radius - tolerance, 0.75f * radius) : Common.Math.Max(separation - tolerance, 0.02f * radius);
 				}
 
 				if (separation - target < 0.5f * tolerance)

@@ -40,7 +40,7 @@ namespace Box2DNet.Dynamics
 			Collision.Collision.CollideCircles(ref manifold, (CircleShape)shape1, xf1, (CircleShape)shape2, xf2);
 		}
 
-		new public static Contact Create(Fixture fixtureA, Fixture fixtureB)
+		public new static Contact Create(Fixture fixtureA, Fixture fixtureB)
 		{
 			return new CircleContact(fixtureA, fixtureB);
 		}

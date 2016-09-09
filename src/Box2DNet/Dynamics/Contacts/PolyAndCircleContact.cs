@@ -40,12 +40,12 @@ namespace Box2DNet.Dynamics
 			Collision.Collision.CollidePolygonAndCircle(ref manifold, (PolygonShape)shape1, xf1, (CircleShape)shape2, xf2);
 		}
 
-		new public static Contact Create(Fixture fixtureA, Fixture fixtureB)
+		public new static Contact Create(Fixture fixtureA, Fixture fixtureB)
 		{
 			return new PolyAndCircleContact(fixtureA, fixtureB);
 		}
 
-		new public static void Destroy(ref Contact contact)
+		public new static void Destroy(ref Contact contact)
 		{
 			contact = null;
 		}

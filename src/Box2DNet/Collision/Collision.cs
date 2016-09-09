@@ -33,9 +33,8 @@ namespace Box2DNet.Collision
 
 		public static bool TestOverlap(AABB a, AABB b)
 		{
-			Vec2 d1, d2;
-			d1 = b.LowerBound - a.UpperBound;
-			d2 = a.LowerBound - b.UpperBound;
+		    var d1 = b.LowerBound - a.UpperBound;
+			var d2 = a.LowerBound - b.UpperBound;
 
 			if (d1.X > 0.0f || d1.Y > 0.0f)
 				return false;
@@ -116,14 +115,7 @@ namespace Box2DNet.Collision
 				// Find intersection point of edge and plane
 				float interp = distance0 / (distance0 - distance1);
 				vOut[numOut].V = vIn[0].V + interp * (vIn[1].V - vIn[0].V);
-				if (distance0 > 0.0f)
-				{
-					vOut[numOut].ID = vIn[0].ID;
-				}
-				else
-				{
-					vOut[numOut].ID = vIn[1].ID;
-				}
+				vOut[numOut].ID = distance0 > 0.0f ? vIn[0].ID : vIn[1].ID;
 				++numOut;
 			}
 
@@ -410,11 +402,10 @@ namespace Box2DNet.Collision
 			float tmin = -Common.Settings.FLT_MAX;
 			float tmax = Common.Settings.FLT_MAX;
 
-			output = new RayCastOutput();
+		    output = new RayCastOutput {Hit = false};
 
-			output.Hit = false;
 
-			Vec2 p = input.P1;
+		    Vec2 p = input.P1;
 			Vec2 d = input.P2 - input.P1;
 			Vec2 absD = Common.Math.Abs(d);
 

@@ -31,7 +31,7 @@ namespace Box2DNet.Dynamics.Controllers
         protected ControllerEdge _bodyList;
         protected int _bodyCount;
 
-        public Controller()
+        protected Controller()
         {
             _bodyList = null;
             _bodyCount = 0;
@@ -71,14 +71,16 @@ namespace Box2DNet.Dynamics.Controllers
         /// </summary>
         public void AddBody(Body body)
         {
-            ControllerEdge edge = new ControllerEdge();
+            ControllerEdge edge = new ControllerEdge
+            {
+                body = body,
+                controller = this,
+                nextBody = _bodyList,
+                prevBody = null
+            };
 
-            edge.body = body;
-            edge.controller = this;
 
             //Add edge to controller list
-            edge.nextBody = _bodyList;
-            edge.prevBody = null;
             if (_bodyList != null)
                 _bodyList.prevBody = edge;
             _bodyList = edge;

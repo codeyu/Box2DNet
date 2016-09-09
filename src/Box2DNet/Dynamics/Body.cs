@@ -766,11 +766,13 @@ namespace Box2DNet.Dynamics
 		/// <returns>A struct containing the mass, inertia and center of the body.</returns>
 		public MassData GetMassData()
 		{
-			MassData massData = new MassData();
-			massData.Mass = _mass;
-			massData.I = _I;
-			massData.Center = GetWorldCenter();
-			return massData;
+		    MassData massData = new MassData
+		    {
+		        Mass = _mass,
+		        I = _I,
+		        Center = GetWorldCenter()
+		    };
+		    return massData;
 		}
 
 		/// <summary>

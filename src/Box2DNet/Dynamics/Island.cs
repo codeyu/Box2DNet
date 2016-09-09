@@ -161,7 +161,7 @@ namespace Box2DNet.Dynamics
 
 	public class Island : IDisposable
 	{
-		public ContactListener _listener;
+		public IContactListener _listener;
 
 		public Body[] _bodies;
 		public Contact[] _contacts;
@@ -180,7 +180,7 @@ namespace Box2DNet.Dynamics
 
 		public int _positionIterationCount;
 
-		public Island(int bodyCapacity, int contactCapacity, int jointCapacity, ContactListener listener)
+		public Island(int bodyCapacity, int contactCapacity, int jointCapacity, IContactListener listener)
 		{
 			_bodyCapacity = bodyCapacity;
 			_contactCapacity = contactCapacity;

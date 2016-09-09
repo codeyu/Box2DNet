@@ -71,14 +71,15 @@ namespace Box2DNet.Dynamics
 		/// </summary>
 		public Vec2 Gravity { get { return _gravity; } set { _gravity = value; } }
 
-		private bool _allowSleep;
+		private readonly bool _allowSleep;
 
-		private Body _groundBody;
+		private readonly Body _groundBody;
 
 		private DestructionListener _destructionListener;
 		private BoundaryListener _boundaryListener;
 		internal ContactFilter _contactFilter;
-		internal ContactListener _contactListener;
+		internal IContactListener _contactListener;
+        internal ContactListener _contactListener2;
 		private DebugDraw _debugDraw;
 
 		// This is used to compute the time step ratio to
@@ -123,9 +124,8 @@ namespace Box2DNet.Dynamics
 
 			_inv_dt0 = 0.0f;
 
-			_contactManager = new ContactManager();
-			_contactManager._world = this;
-			_broadPhase = new BroadPhase(worldAABB, _contactManager);
+		    _contactManager = new ContactManager {_world = this};
+		    _broadPhase = new BroadPhase(worldAABB, _contactManager);
 
 			BodyDef bd = new BodyDef();
 			_groundBody = CreateBody(bd);
@@ -174,11 +174,18 @@ namespace Box2DNet.Dynamics
 		/// Register a contact event listener
 		/// </summary>
 		/// <param name="listener"></param>
-		public void SetContactListener(ContactListener listener)
+		public void SetContactListener(IContactListener listener)
 		{
 			_contactListener = listener;
 		}
-
+        /// <summary>
+        /// Register a contact event listener
+        /// </summary>
+        /// <param name="listener"></param>
+        public void SetContactListener(ContactListener listener)
+        {
+            _contactListener2 = listener;
+        }
 		/// <summary>
 		/// Register a routine for debug drawing. The debug draw functions are called
 		/// inside the World.Step method, so make sure your renderer is ready to
@@ -205,12 +212,14 @@ namespace Box2DNet.Dynamics
 				return null;
 			}
 
-			Body b = new Body(def, this);
+		    Body b = new Body(def, this)
+		    {
+		        _prev = null,
+		        _next = _bodyList
+		    };
 
-			// Add to world doubly linked list.
-			b._prev = null;
-			b._next = _bodyList;
-			if (_bodyList != null)
+		    // Add to world doubly linked list.
+		    if (_bodyList != null)
 			{
 				_bodyList._prev = b;
 			}
@@ -954,7 +963,7 @@ namespace Box2DNet.Dynamics
 						Box2DNetDebug.Assert(t0 < 1.0f);
 
 						// Compute the time of impact.
-						toi = c.ComputeTOI(b1._sweep, b2._sweep);
+						toi = c.ComputeToi(b1._sweep, b2._sweep);
 						//b2TimeOfImpact(c->m_fixtureA->GetShape(), b1->m_sweep, c->m_fixtureB->GetShape(), b2->m_sweep);
 
 						Box2DNetDebug.Assert(0.0f <= toi && toi <= 1.0f);
@@ -1386,13 +1395,21 @@ namespace Box2DNet.Dynamics
 						continue;
 					}
 
-					AABB b = new AABB();
-					b.LowerBound.X = worldLower.X + invQ.X * bp._bounds[0][p.LowerBounds[0]].Value;
-					b.LowerBound.Y = worldLower.Y + invQ.Y * bp._bounds[1][p.LowerBounds[1]].Value;
-					b.UpperBound.X = worldLower.X + invQ.X * bp._bounds[0][p.UpperBounds[0]].Value;
-					b.UpperBound.Y = worldLower.Y + invQ.Y * bp._bounds[1][p.UpperBounds[1]].Value;
+				    AABB b = new AABB
+				    {
+				        LowerBound =
+				        {
+				            X = worldLower.X + invQ.X*bp._bounds[0][p.LowerBounds[0]].Value,
+				            Y = worldLower.Y + invQ.Y*bp._bounds[1][p.LowerBounds[1]].Value
+				        },
+				        UpperBound =
+				        {
+				            X = worldLower.X + invQ.X*bp._bounds[0][p.UpperBounds[0]].Value,
+				            Y = worldLower.Y + invQ.Y*bp._bounds[1][p.UpperBounds[1]].Value
+				        }
+				    };
 
-					Vec2[] vs1 = new Vec2[4];
+				    Vec2[] vs1 = new Vec2[4];
 					vs1[0].Set(b.LowerBound.X, b.LowerBound.Y);
 					vs1[1].Set(b.UpperBound.X, b.LowerBound.Y);
 					vs1[2].Set(b.UpperBound.X, b.UpperBound.Y);

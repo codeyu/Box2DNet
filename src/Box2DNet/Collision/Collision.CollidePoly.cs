@@ -271,10 +271,9 @@ namespace Box2DNet.Collision
 			// Clip incident edge against extruded edge1 side edges.
 			ClipVertex[] clipPoints1;
 			ClipVertex[] clipPoints2;
-			int np;
 
-			// Clip to box side 1
-			np = Collision.ClipSegmentToLine(out clipPoints1, incidentEdge, -sideNormal, sideOffset1);
+		    // Clip to box side 1
+			var np = Collision.ClipSegmentToLine(out clipPoints1, incidentEdge, -sideNormal, sideOffset1);
 
 			if (np < 2)
 				return;

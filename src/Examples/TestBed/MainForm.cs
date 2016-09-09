@@ -40,9 +40,7 @@ namespace TestBed
 
 		public MainForm()
 		{
-			InitializeComponent();
-            
-
+		    InitializeComponent();
 		}		
 
 		private void MainForm_Load(object sender, EventArgs e)

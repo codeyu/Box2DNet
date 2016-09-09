@@ -40,9 +40,8 @@ namespace Box2DNet.Common
 		/// <param name="alpha">Alpha is a factor in [0,1], where 0 indicates t0.</param>
 		public void GetTransform(out XForm xf, float alpha)
 		{
-			xf = new XForm();
-			xf.Position = (1.0f - alpha) * C0 + alpha * C;
-			float angle = (1.0f - alpha) * A0 + alpha * A;
+		    xf = new XForm {Position = (1.0f - alpha)*C0 + alpha*C};
+		    float angle = (1.0f - alpha) * A0 + alpha * A;
 			xf.R.Set(angle);
 
 			// Shift to origin

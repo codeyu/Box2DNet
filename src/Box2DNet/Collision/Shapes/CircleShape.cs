@@ -19,7 +19,6 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-using Box2DNet;
 using Box2DNet.Common;
 
 namespace Box2DNet.Collision
@@ -107,12 +106,14 @@ namespace Box2DNet.Collision
 
 		public override void ComputeMass(out MassData massData, float density)
 		{
-			massData = new MassData();
+		    massData = new MassData
+		    {
+		        Mass = density*Settings.Pi*_radius*_radius,
+		        Center = _position
+		    };
 
-			massData.Mass = density * Settings.Pi * _radius * _radius;
-			massData.Center = _position;
 
-			// inertia about the local origin
+		    // inertia about the local origin
 			massData.I = massData.Mass * (0.5f * _radius * _radius + Vec2.Dot(_position, _position));
 		}		
 

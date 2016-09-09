@@ -62,11 +62,13 @@ namespace Box2DNet.Common
 			float det = Vec3.Dot(Col1, Vec3.Cross(Col2, Col3));
 			Box2DNetDebug.Assert(det != 0.0f);
 			det = 1.0f / det;
-			Vec3 x = new Vec3();
-			x.X = det * Vec3.Dot(b, Vec3.Cross(Col2, Col3));
-			x.Y = det * Vec3.Dot(Col1, Vec3.Cross(b, Col3));
-			x.Z = det * Vec3.Dot(Col1, Vec3.Cross(Col2, b));
-			return x;
+		    Vec3 x = new Vec3
+		    {
+		        X = det*Vec3.Dot(b, Vec3.Cross(Col2, Col3)),
+		        Y = det*Vec3.Dot(Col1, Vec3.Cross(b, Col3)),
+		        Z = det*Vec3.Dot(Col1, Vec3.Cross(Col2, b))
+		    };
+		    return x;
 		}
 
 		/// <summary>
@@ -80,10 +82,12 @@ namespace Box2DNet.Common
 			float det = a11 * a22 - a12 * a21;
 			Box2DNetDebug.Assert(det != 0.0f);
 			det = 1.0f / det;
-			Vec2 x = new Vec2();
-			x.X = det * (a22 * b.X - a12 * b.Y);
-			x.Y = det * (a11 * b.Y - a21 * b.X);
-			return x;
+		    Vec2 x = new Vec2
+		    {
+		        X = det*(a22*b.X - a12*b.Y),
+		        Y = det*(a11*b.Y - a21*b.X)
+		    };
+		    return x;
 		}
 
 		public Vec3 Col1, Col2, Col3;

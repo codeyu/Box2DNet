@@ -36,7 +36,7 @@ namespace Box2DNet.Dynamics.Controllers
         /// <summary>
         /// The force to apply
         /// </summary>
-        Vec2 F;
+        readonly Vec2 F;
 
         public ConstantForceController(ConstantForceControllerDef def)
         {

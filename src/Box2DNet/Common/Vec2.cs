@@ -19,11 +19,6 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-using System;
-using System.Collections.Generic;
-using System.Text;
-using Box2DNet;
-
 namespace Box2DNet.Common
 {
 	/// <summary>
@@ -37,15 +32,12 @@ namespace Box2DNet.Common
 		{
 			get
 			{
-				if (i == 0) return X;
-				else if (i == 1) return Y;
-				else
-				{
-					Box2DNetDebug.Assert(false, "Incorrect Vec2 element!");
-					return 0;
-				}
+			    if (i == 0) return X;
+			    if (i == 1) return Y;
+			    Box2DNetDebug.Assert(false, "Incorrect Vec2 element!");
+			    return 0;
 			}
-			set
+		    set
 			{
 				if (i == 0) X = value;
 				else if (i == 1) Y = value;
@@ -225,7 +217,7 @@ namespace Box2DNet.Common
 		public static float DistanceSquared(Vec2 a, Vec2 b)
 		{
 			Vec2 c = a - b;
-			return Vec2.Dot(c, c);
+			return Dot(c, c);
 		}
 	}
 }

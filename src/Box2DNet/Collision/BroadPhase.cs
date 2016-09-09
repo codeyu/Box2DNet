@@ -666,10 +666,7 @@ namespace Box2DNet.Collision
 			int xIndex;
 			int yIndex;
 
-			ushort proxyId;
-			Proxy proxy;
-
-			// TODO_ERIN implement fast float to ushort conversion.
+		    // TODO_ERIN implement fast float to ushort conversion.
 			startValues[0] = (ushort)((ushort)(p1x) & (BROADPHASE_MAX - 1));
 			startValues2[0] = (ushort)((ushort)(p1x) | 1);
 
@@ -766,7 +763,9 @@ namespace Box2DNet.Collision
 				}
 				for (; ; )
 				{
-					if (sy == 0 || (sx != 0 && xProgress < yProgress))
+				    ushort proxyId;
+				    Proxy proxy;
+				    if (sy == 0 || (sx != 0 && xProgress < yProgress))
 					{
 						if (xProgress > maxLambda)
 							break;
@@ -896,7 +895,7 @@ namespace Box2DNet.Collision
 					}
 				}
 
-				break;
+			    break;
 			}
 
 			int count = 0;

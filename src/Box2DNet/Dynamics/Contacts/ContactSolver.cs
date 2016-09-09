@@ -656,7 +656,7 @@ namespace Box2DNet.Dynamics
 			}
 		}
 
-		private static PositionSolverManifold s_PositionSolverManifold = new PositionSolverManifold();
+		private static readonly PositionSolverManifold s_PositionSolverManifold = new PositionSolverManifold();
 
 		public bool SolvePositionConstraints(float baumgarte)
 		{

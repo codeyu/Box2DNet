@@ -285,24 +285,9 @@ namespace Box2DNet.Dynamics
 			Body b1 = _body1;
 			Body b2 = _body2;
 
-			float coordinate1, coordinate2;
-			if (_revolute1 != null)
-			{
-				coordinate1 = _revolute1.JointAngle;
-			}
-			else
-			{
-				coordinate1 = _prismatic1.JointTranslation;
-			}
+		    var coordinate1 = _revolute1 != null ? _revolute1.JointAngle : _prismatic1.JointTranslation;
 
-			if (_revolute2 != null)
-			{
-				coordinate2 = _revolute2.JointAngle;
-			}
-			else
-			{
-				coordinate2 = _prismatic2.JointTranslation;
-			}
+			var coordinate2 = _revolute2 != null ? _revolute2.JointAngle : _prismatic2.JointTranslation;
 
 			float C = _constant - (coordinate1 + _ratio * coordinate2);
 

@@ -464,7 +464,7 @@ namespace Box2DNet.Collision
 		/// CircleShape, PolygonShape, EdgeShape. The simplex cache is input/output.
 		/// On the first call set SimplexCache.Count to zero.
 		/// </summary>		
-		public unsafe static void Distance(out DistanceOutput output, ref SimplexCache cache, ref DistanceInput input, Shape shapeA, Shape shapeB)
+		public static unsafe void Distance(out DistanceOutput output, ref SimplexCache cache, ref DistanceInput input, Shape shapeA, Shape shapeB)
 		{
 			output = new DistanceOutput();
 
@@ -484,15 +484,14 @@ namespace Box2DNet.Collision
 			// These store the vertices of the last simplex so that we
 			// can check for duplicates and prevent cycling.
 			int* lastA = stackalloc int[4], lastB = stackalloc int[4];
-			int lastCount;
 
-			// Main iteration loop.
+		    // Main iteration loop.
 			int iter = 0;
 			const int k_maxIterationCount = 20;
 			while (iter < k_maxIterationCount)
 			{
 				// Copy simplex so we can identify duplicates.
-				lastCount = simplex._count;
+				var lastCount = simplex._count;
 				int i;
 				for (i = 0; i < lastCount; ++i)
 				{

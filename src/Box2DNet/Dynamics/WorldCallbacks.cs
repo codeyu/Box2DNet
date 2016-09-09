@@ -116,7 +116,7 @@ namespace Box2DNet.Dynamics
 	/// You should strive to make your callbacks efficient because there may be
 	/// many callbacks per time step.
 	/// @warning You cannot create/destroy Box2DX entities inside these callbacks.
-	public interface ContactListener
+	public interface IContactListener
 	{
 		/// Called when two fixtures begin to touch.
 		void BeginContact(Contact contact);
@@ -144,6 +144,44 @@ namespace Box2DNet.Dynamics
 		/// Note: this is only called for contacts that are touching, solid, and awake.
 		void PostSolve(Contact contact, ContactImpulse impulse);
 	}
+
+    /// <summary>
+    /// Implement this class to get collision results. You can use these results for
+    /// things like sounds and game logic. You can also get contact results by
+    /// traversing the contact lists after the time step. However, you might miss
+    /// some contacts because continuous physics leads to sub-stepping.
+    /// Additionally you may receive multiple callbacks for the same contact in a
+    /// single time step.
+    /// You should strive to make your callbacks efficient because there may be
+    /// many callbacks per time step.
+    /// @warning The contact separation is the last computed value.
+    /// @warning You cannot create/destroy Box2D entities inside these callbacks.
+    /// </summary>
+    public abstract class ContactListener
+    {
+        /// <summary>
+        /// Called when a contact point is added. This includes the geometry
+        /// and the forces.
+        /// </summary>
+        public virtual void Add(ContactPoint point) { return; }
+
+        /// <summary>
+        /// Called when a contact point persists. This includes the geometry
+        /// and the forces.
+        /// </summary>
+        public virtual void Persist(ContactPoint point) { return; }
+
+        /// <summary>
+        /// Called when a contact point is removed. This includes the last
+        /// computed geometry and forces.
+        /// </summary>
+        public virtual void Remove(ContactPoint point) { return; }
+
+        /// <summary>
+        /// Called after a contact point is solved.
+        /// </summary>
+        public virtual void Result(ContactResult point) { return; }
+    }
 
 	/// <summary>
 	/// Color for debug drawing. Each value has the range [0,1].
@@ -183,7 +221,7 @@ namespace Box2DNet.Dynamics
 
 		protected DrawFlags _drawFlags;
 
-		public DebugDraw()
+	    protected DebugDraw()
 		{
 			_drawFlags = 0;
 		}

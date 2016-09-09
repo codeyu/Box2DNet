@@ -175,9 +175,8 @@ namespace Box2DNet.Dynamics
 		{
 			SetAsBox(hx, hy);
 
-			XForm xf = new XForm();
-			xf.Position = center;
-			xf.R.Set(angle);
+		    XForm xf = new XForm {Position = center};
+		    xf.R.Set(angle);
 
 			for (int i = 0; i < VertexCount; ++i)
 			{
@@ -343,14 +342,7 @@ namespace Box2DNet.Dynamics
 			// You are creating a shape outside the world box.
 			Box2DNetDebug.Assert(inRange);
 
-			if (inRange)
-			{
-				_proxyId = broadPhase.CreateProxy(aabb, this);
-			}
-			else
-			{
-				_proxyId = PairManager.NullProxy;
-			}
+			_proxyId = inRange ? broadPhase.CreateProxy(aabb, this) : PairManager.NullProxy;
 		}
 
 		public void Destroy(BroadPhase broadPhase)
@@ -407,14 +399,7 @@ namespace Box2DNet.Dynamics
 
 			bool inRange = broadPhase.InRange(aabb);
 
-			if (inRange)
-			{
-				_proxyId = broadPhase.CreateProxy(aabb, this);
-			}
-			else
-			{
-				_proxyId = PairManager.NullProxy;
-			}
+			_proxyId = inRange ? broadPhase.CreateProxy(aabb, this) : PairManager.NullProxy;
 		}
 
 		public virtual void Dispose()

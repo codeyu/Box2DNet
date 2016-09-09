@@ -55,9 +55,8 @@ namespace Box2DNet.Common
 		/// </summary>
 		public static float InvSqrt(float x)
 		{
-			Convert convert = new Convert();
-			convert.x = x;
-			float xhalf = 0.5f * x;
+		    Convert convert = new Convert {x = x};
+		    float xhalf = 0.5f * x;
 			convert.i = 0x5f3759df - (convert.i >> 1);
 			x = convert.x;
 			x = x * (1.5f - xhalf * x * x);
@@ -69,7 +68,7 @@ namespace Box2DNet.Common
 			return (float)System.Math.Sqrt(x);
 		}
 
-		private static Random s_rnd = new Random();
+		private static readonly Random s_rnd = new Random();
 		/// <summary>
 		/// Random number in range [-1,1]
 		/// </summary>
@@ -146,10 +145,12 @@ namespace Box2DNet.Common
 
 		public static Vec2 Min(Vec2 a, Vec2 b)
 		{
-			Vec2 c = new Vec2();
-			c.X = Math.Min(a.X, b.X);
-			c.Y = Math.Min(a.Y, b.Y);
-			return c;
+		    Vec2 c = new Vec2
+		    {
+		        X = Math.Min(a.X, b.X),
+		        Y = Math.Min(a.Y, b.Y)
+		    };
+		    return c;
 		}
 
 		public static float Max(float a, float b)
@@ -164,10 +165,12 @@ namespace Box2DNet.Common
 
 		public static Vec2 Max(Vec2 a, Vec2 b)
 		{
-			Vec2 c = new Vec2();
-			c.X = Math.Max(a.X, b.X);
-			c.Y = Math.Max(a.Y, b.Y);
-			return c;
+		    Vec2 c = new Vec2
+		    {
+		        X = Math.Max(a.X, b.X),
+		        Y = Math.Max(a.Y, b.Y)
+		    };
+		    return c;
 		}
 
 		public static float Clamp(float a, float low, float high)

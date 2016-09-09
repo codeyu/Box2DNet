@@ -568,8 +568,7 @@ namespace Box2DNet.Dynamics
 			if (_enableLimit && _limitState != LimitState.InactiveLimit)
 			{
 				// Solve prismatic and limit constraint in block form.
-				float Cdot2;
-				Cdot2 = Vec2.Dot(_axis, v2 - v1) + _a2 * w2 - _a1 * w1;
+			    var Cdot2 = Vec2.Dot(_axis, v2 - v1) + _a2 * w2 - _a1 * w1;
 				Vec3 Cdot = new Vec3(Cdot1.X, Cdot1.Y, Cdot2);
 
 				Vec3 f1 = _impulse;
