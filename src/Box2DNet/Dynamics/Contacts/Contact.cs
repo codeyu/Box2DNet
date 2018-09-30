@@ -1,5 +1,5 @@
-﻿/*
-  Box2DX Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
+/*
+  Box2DNet Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
   Box2D original C++ version Copyright (c) 2006-2009 Erin Catto http://www.gphysics.com
 
   This software is provided 'as-is', without any express or implied
@@ -19,9 +19,11 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-using System;
+using System; using System.Numerics;
 using Box2DNet.Collision;
 using Box2DNet.Common;
+
+using Transform = Box2DNet.Common.Transform;
 
 namespace Box2DNet.Dynamics
 {
@@ -62,86 +64,6 @@ namespace Box2DNet.Dynamics
 		public ContactEdge Next;
 	}
 
-#warning "CAS"
-    /// <summary>
-    /// This structure is used to report contact points.
-    /// </summary>
-    public class ContactPoint
-    {
-        /// <summary>
-        /// The first shape.
-        /// </summary>
-        public Shape Shape1;
-        /// <summary>
-        /// The second shape.
-        /// </summary>
-        public Shape Shape2;
-        /// <summary>
-        /// Position in world coordinates.
-        /// </summary>
-        public Vec2 Position;
-        /// <summary>
-        /// Velocity of point on body2 relative to point on body1 (pre-solver).
-        /// </summary>
-        public Vec2 Velocity;
-        /// <summary>
-        /// Points from shape1 to shape2.
-        /// </summary>
-        public Vec2 Normal;
-        /// <summary>
-        /// The separation is negative when shapes are touching.
-        /// </summary>
-        public float Separation;
-        /// <summary>
-        /// The combined friction coefficient.
-        /// </summary>
-        public float Friction;
-        /// <summary>
-        /// The combined restitution coefficient.
-        /// </summary>
-        public float Restitution;
-        /// <summary>
-        /// The contact id identifies the features in contact.
-        /// </summary>
-        public ContactID ID;
-    }
-
-#warning "CAS"
-    /// <summary>
-    /// This structure is used to report contact point results.
-    /// </summary>
-    public class ContactResult
-    {
-        /// <summary>
-        /// The first shape.
-        /// </summary>
-        public Shape Shape1;
-        /// <summary>
-        /// The second shape.
-        /// </summary>
-        public Shape Shape2;
-        /// <summary>
-        /// Position in world coordinates.
-        /// </summary>
-        public Vec2 Position;
-        /// <summary>
-        /// Points from shape1 to shape2.
-        /// </summary>
-        public Vec2 Normal;
-        /// <summary>
-        /// The normal impulse applied to body2.
-        /// </summary>
-        public float NormalImpulse;
-        /// <summary>
-        /// The tangent impulse applied to body2.
-        /// </summary>
-        public float TangentImpulse;
-        /// <summary>
-        /// The contact id identifies the features in contact.
-        /// </summary>
-        public ContactID ID;
-    }
-
 	/// <summary>
 	/// The class manages contact between two shapes. A contact exists for each overlapping
 	/// AABB in the broad-phase (except if filtered). Therefore a contact object may exist
@@ -181,12 +103,12 @@ namespace Box2DNet.Dynamics
 		public float _toi;
 
 		internal delegate void CollideShapeDelegate(
-			ref Manifold manifold, Shape circle1, XForm xf1, Shape circle2, XForm xf2);
+			ref Manifold manifold, Shape circle1, Transform xf1, Shape circle2, Transform xf2);
 		internal CollideShapeDelegate CollideShapeFunction;
 
-	    protected Contact(){}
+		public Contact(){}
 
-	    protected Contact(Fixture fA, Fixture fB)
+		public Contact(Fixture fA, Fixture fB)
 		{
 			_flags = 0;
 
@@ -290,7 +212,7 @@ namespace Box2DNet.Dynamics
 			destroyFcn(ref contact);
 		}
 
-		public void Update(IContactListener listener)
+		public void Update(ContactListener listener)
 		{
 			Manifold oldManifold = _manifold.Clone();
 
@@ -374,21 +296,19 @@ namespace Box2DNet.Dynamics
 
 			Box2DNetDebug.Assert(CollideShapeFunction!=null);
 
-			CollideShapeFunction(ref _manifold, _fixtureA.Shape, bodyA.GetXForm(), _fixtureB.Shape, bodyB.GetXForm());
+			CollideShapeFunction(ref _manifold, _fixtureA.Shape, bodyA.GetTransform(), _fixtureB.Shape, bodyB.GetTransform());
 		}
 
-		public float ComputeToi(Sweep sweepA, Sweep sweepB)
+		public float ComputeTOI(Sweep sweepA, Sweep sweepB)
 		{
-		    TOIInput input = new TOIInput
-		    {
-		        SweepA = sweepA,
-		        SweepB = sweepB,
-		        SweepRadiusA = _fixtureA.ComputeSweepRadius(sweepA.LocalCenter),
-		        SweepRadiusB = _fixtureB.ComputeSweepRadius(sweepB.LocalCenter),
-		        Tolerance = Common.Settings.LinearSlop
-		    };
+			TOIInput input = new TOIInput();
+			input.SweepA = sweepA;
+			input.SweepB = sweepB;
+			input.SweepRadiusA = _fixtureA.ComputeSweepRadius(sweepA.LocalCenter);
+			input.SweepRadiusB = _fixtureB.ComputeSweepRadius(sweepB.LocalCenter);
+			input.Tolerance = Common.Settings.LinearSlop;
 
-		    return Collision.Collision.TimeOfImpact(input, _fixtureA.Shape, _fixtureB.Shape);
+			return Collision.Collision.TimeOfImpact(input, _fixtureA.Shape, _fixtureB.Shape);
 		}
 
 		/// <summary>
@@ -411,7 +331,7 @@ namespace Box2DNet.Dynamics
 			Shape shapeA = _fixtureA.Shape;
 			Shape shapeB = _fixtureB.Shape;
 
-			worldManifold.Initialize(_manifold, bodyA.GetXForm(), shapeA._radius, bodyB.GetXForm(), shapeB._radius);
+			worldManifold.Initialize(_manifold, bodyA.GetTransform(), shapeA._radius, bodyB.GetTransform(), shapeB._radius);
 		}
 
 		/// <summary>

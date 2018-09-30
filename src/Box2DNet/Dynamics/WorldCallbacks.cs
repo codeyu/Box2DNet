@@ -1,5 +1,5 @@
 ﻿/*
-  Box2DX Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
+  Box2DNet Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
   Box2D original C++ version Copyright (c) 2006-2009 Erin Catto http://www.gphysics.com
 
   This software is provided 'as-is', without any express or implied
@@ -20,9 +20,12 @@
 */
 
 using System;
-
+using System.Numerics;
 using Box2DNet.Common;
 using Box2DNet.Collision;
+
+ 
+using Transform = Box2DNet.Common.Transform;
 
 namespace Box2DNet.Dynamics
 {
@@ -115,8 +118,8 @@ namespace Box2DNet.Dynamics
 	/// single time step.
 	/// You should strive to make your callbacks efficient because there may be
 	/// many callbacks per time step.
-	/// @warning You cannot create/destroy Box2DX entities inside these callbacks.
-	public interface IContactListener
+	/// @warning You cannot create/destroy Box2DNet entities inside these callbacks.
+	public interface ContactListener
 	{
 		/// Called when two fixtures begin to touch.
 		void BeginContact(Contact contact);
@@ -144,44 +147,6 @@ namespace Box2DNet.Dynamics
 		/// Note: this is only called for contacts that are touching, solid, and awake.
 		void PostSolve(Contact contact, ContactImpulse impulse);
 	}
-
-    /// <summary>
-    /// Implement this class to get collision results. You can use these results for
-    /// things like sounds and game logic. You can also get contact results by
-    /// traversing the contact lists after the time step. However, you might miss
-    /// some contacts because continuous physics leads to sub-stepping.
-    /// Additionally you may receive multiple callbacks for the same contact in a
-    /// single time step.
-    /// You should strive to make your callbacks efficient because there may be
-    /// many callbacks per time step.
-    /// @warning The contact separation is the last computed value.
-    /// @warning You cannot create/destroy Box2D entities inside these callbacks.
-    /// </summary>
-    public abstract class ContactListener
-    {
-        /// <summary>
-        /// Called when a contact point is added. This includes the geometry
-        /// and the forces.
-        /// </summary>
-        public virtual void Add(ContactPoint point) { return; }
-
-        /// <summary>
-        /// Called when a contact point persists. This includes the geometry
-        /// and the forces.
-        /// </summary>
-        public virtual void Persist(ContactPoint point) { return; }
-
-        /// <summary>
-        /// Called when a contact point is removed. This includes the last
-        /// computed geometry and forces.
-        /// </summary>
-        public virtual void Remove(ContactPoint point) { return; }
-
-        /// <summary>
-        /// Called after a contact point is solved.
-        /// </summary>
-        public virtual void Result(ContactResult point) { return; }
-    }
 
 	/// <summary>
 	/// Color for debug drawing. Each value has the range [0,1].
@@ -221,7 +186,7 @@ namespace Box2DNet.Dynamics
 
 		protected DrawFlags _drawFlags;
 
-	    protected DebugDraw()
+		public DebugDraw()
 		{
 			_drawFlags = 0;
 		}
@@ -247,32 +212,32 @@ namespace Box2DNet.Dynamics
 		/// <summary>
 		/// Draw a closed polygon provided in CCW order.
 		/// </summary>
-		public abstract void DrawPolygon(Vec2[] vertices, int vertexCount, Color color);
+		public abstract void DrawPolygon(Vector2[] vertices, int vertexCount, Color color);
 
 		/// <summary>
 		/// Draw a solid closed polygon provided in CCW order.
 		/// </summary>
-		public abstract void DrawSolidPolygon(Vec2[] vertices, int vertexCount, Color color);
+		public abstract void DrawSolidPolygon(Vector2[] vertices, int vertexCount, Color color);
 
 		/// <summary>
 		/// Draw a circle.
 		/// </summary>
-		public abstract void DrawCircle(Vec2 center, float radius, Color color);
+		public abstract void DrawCircle(Vector2 center, float radius, Color color);
 
 		/// <summary>
 		/// Draw a solid circle.
 		/// </summary>
-		public abstract void DrawSolidCircle(Vec2 center, float radius, Vec2 axis, Color color);
+		public abstract void DrawSolidCircle(Vector2 center, float radius, Vector2 axis, Color color);
 
 		/// <summary>
 		/// Draw a line segment.
 		/// </summary>
-		public abstract void DrawSegment(Vec2 p1, Vec2 p2, Color color);
+		public abstract void DrawSegment(Vector2 p1, Vector2 p2, Color color);
 
 		/// <summary>
-		/// Draw a transform. Choose your own length scale.
+		/// Draw a Transform. Choose your own length scale.
 		/// </summary>
-		/// <param name="xf">A transform.</param>
-		public abstract void DrawXForm(XForm xf);
+		/// <param name="xf">A Transform.</param>
+		public abstract void DrawTransform(Transform xf);
 	}
 }

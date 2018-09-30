@@ -1,5 +1,5 @@
 ﻿/*
-  Box2DX Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
+  Box2DNet Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
   Box2D original C++ version Copyright (c) 2006-2009 Erin Catto http://www.gphysics.com
 
   This software is provided 'as-is', without any express or implied
@@ -19,8 +19,11 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-using System;
+using System; using System.Numerics;
 using Box2DNet.Common;
+ 
+
+using Transform = Box2DNet.Common.Transform;
 
 namespace Box2DNet.Collision
 {
@@ -37,7 +40,7 @@ namespace Box2DNet.Collision
 		/// <summary>
 		/// The position of the shape's centroid relative to the shape's origin.
 		/// </summary>
-		public Vec2 Center;
+		public Vector2 Center;
 
 		/// <summary>
 		/// The rotational inertia of the shape.
@@ -85,29 +88,29 @@ namespace Box2DNet.Collision
 		/// <summary>
 		/// Test a point for containment in this shape. This only works for convex shapes.
 		/// </summary>
-		/// <param name="xf">The shape world transform.</param>
+		/// <param name="xf">The shape world Transform.</param>
 		/// <param name="p">A point in world coordinates.</param>
 		/// <returns></returns>
-		public abstract bool TestPoint(XForm xf, Vec2 p);
+		public abstract bool TestPoint(Transform xf, Vector2 p);
 
 		/// <summary>
 		/// Perform a ray cast against this shape.
 		/// </summary>
-		/// <param name="xf">The shape world transform.</param>
+		/// <param name="xf">The shape world Transform.</param>
 		/// <param name="lambda">Returns the hit fraction. You can use this to compute the contact point
 		/// p = (1 - lambda) * segment.P1 + lambda * segment.P2.</param>
 		/// <param name="normal"> Returns the normal at the contact point. If there is no intersection, 
 		/// the normal is not set.</param>
 		/// <param name="segment">Defines the begin and end point of the ray cast.</param>
 		/// <param name="maxLambda">A number typically in the range [0,1].</param>
-		public abstract SegmentCollide TestSegment(XForm xf, out float lambda, out Vec2 normal, Segment segment, float maxLambda);
+		public abstract SegmentCollide TestSegment(Transform xf, out float lambda, out Vector2 normal, Segment segment, float maxLambda);
 
 		/// <summary>
-		/// Given a transform, compute the associated axis aligned bounding box for this shape.
+		/// Given a Transform, compute the associated axis aligned bounding box for this shape.
 		/// </summary>
 		/// <param name="aabb">Returns the axis aligned box.</param>
-		/// <param name="xf">The world transform of the shape.</param>
-		public abstract void ComputeAABB(out AABB aabb, XForm xf);
+		/// <param name="xf">The world Transform of the shape.</param>
+		public abstract void ComputeAABB(out AABB aabb, Transform xf);
 
 		/// <summary>
 		/// Compute the mass properties of this shape using its dimensions and density.
@@ -121,23 +124,23 @@ namespace Box2DNet.Collision
 		/// </summary>
 		/// <param name="normal">Normal the surface normal.</param>
 		/// <param name="offset">Offset the surface offset along normal.</param>
-		/// <param name="xf">The shape transform.</param>
+		/// <param name="xf">The shape Transform.</param>
 		/// <param name="c">Returns the centroid.</param>
 		/// <returns>The total volume less than offset along normal.</returns>
-		public abstract float ComputeSubmergedArea(Vec2 normal, float offset, XForm xf, out Vec2 c);
+		public abstract float ComputeSubmergedArea(Vector2 normal, float offset, Transform xf, out Vector2 c);
 
 		/// <summary>
 		/// Compute the sweep radius. This is used for conservative advancement (continuous collision detection).
 		/// </summary>
 		/// <param name="pivot">Pivot is the pivot point for rotation.</param>
 		/// <returns>The distance of the furthest point from the pivot.</returns>
-		public abstract float ComputeSweepRadius(Vec2 pivot);
+		public abstract float ComputeSweepRadius(Vector2 pivot);
 
-		public abstract Vec2 GetVertex(int index);
+		public abstract Vector2 GetVertex(int index);
 
-		public abstract int GetSupport(Vec2 d);
+		public abstract int GetSupport(Vector2 d);
 
-		public abstract Vec2 GetSupportVertex(Vec2 d);
+		public abstract Vector2 GetSupportVertex(Vector2 d);
 
 		public virtual void Dispose(){}
  	}

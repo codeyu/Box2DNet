@@ -1,5 +1,5 @@
 ﻿/*
-  Box2DX Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
+  Box2DNet Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
   Box2D original C++ version Copyright (c) 2006-2009 Erin Catto http://www.gphysics.com
 
   This software is provided 'as-is', without any express or implied
@@ -137,31 +137,32 @@ This might be faster than computing sin+cos.
 However, we can compute sin+cos of the same angle fast.
 */
 
-using System;
+using System; using System.Numerics;
 using System.Collections.Generic;
 using System.Text;
-using Box2DNet;
-using Box2DNet.Dynamics;
+
 using Box2DNet.Common;
 using Box2DNet.Collision;
+
+ 
 
 namespace Box2DNet.Dynamics
 {
 	public struct Position
 	{
-		public Vec2 x;
+		public Vector2 x;
 		public float a;
 	}
 
 	public struct Velocity
 	{
-		public Vec2 v;
+		public Vector2 v;
 		public float w;
 	}
 
 	public class Island : IDisposable
 	{
-		public IContactListener _listener;
+		public ContactListener _listener;
 
 		public Body[] _bodies;
 		public Contact[] _contacts;
@@ -180,7 +181,7 @@ namespace Box2DNet.Dynamics
 
 		public int _positionIterationCount;
 
-		public Island(int bodyCapacity, int contactCapacity, int jointCapacity, IContactListener listener)
+		public Island(int bodyCapacity, int contactCapacity, int jointCapacity, ContactListener listener)
 		{
 			_bodyCapacity = bodyCapacity;
 			_contactCapacity = contactCapacity;
@@ -216,7 +217,7 @@ namespace Box2DNet.Dynamics
 			_jointCount = 0;
 		}
 
-		public void Solve(TimeStep step, Vec2 gravity, bool allowSleep)
+		public void Solve(TimeStep step, Vector2 gravity, bool allowSleep)
 		{
 			// Integrate velocities and apply damping.
 			for (int i = 0; i < _bodyCount; ++i)
@@ -231,7 +232,7 @@ namespace Box2DNet.Dynamics
 				b._angularVelocity += step.Dt * b._invI * b._torque;
 
 				// Reset forces.
-				b._force.Set(0.0f, 0.0f);
+				b._force = Vector2.Zero;
 				b._torque = 0.0f;
 
 				// Apply damping.
@@ -241,8 +242,8 @@ namespace Box2DNet.Dynamics
 				// v2 = exp(-c * dt) * v1
 				// Taylor expansion:
 				// v2 = (1.0f - c * dt) * v1
-				b._linearVelocity *= Common.Math.Clamp(1.0f - step.Dt * b._linearDamping, 0.0f, 1.0f);
-				b._angularVelocity *= Common.Math.Clamp(1.0f - step.Dt * b._angularDamping, 0.0f, 1.0f);
+				b._linearVelocity *= Box2DNet.Common.Math.Clamp(1.0f - step.Dt * b._linearDamping, 0.0f, 1.0f);
+				b._angularVelocity *= Box2DNet.Common.Math.Clamp(1.0f - step.Dt * b._angularDamping, 0.0f, 1.0f);
 			}
 
 			ContactSolver contactSolver = new ContactSolver(step, _contacts, _contactCount);
@@ -277,11 +278,10 @@ namespace Box2DNet.Dynamics
 					continue;
 
 				// Check for large velocities.
-				Vec2 translation = step.Dt * b._linearVelocity;
-				if (Common.Vec2.Dot(translation, translation) > Settings.MaxTranslationSquared)
+				Vector2 translation = step.Dt * b._linearVelocity;
+				if (Vector2.Dot(translation, translation) > Settings.MaxTranslationSquared)
 				{
-					translation.Normalize();
-					b._linearVelocity = (Settings.MaxTranslation * step.Inv_Dt) * translation;
+					b._linearVelocity = (Settings.MaxTranslation * step.Inv_Dt) * translation.Normalized();
 				}
 
 				float rotation = step.Dt * b._angularVelocity;
@@ -305,7 +305,7 @@ namespace Box2DNet.Dynamics
 				b._sweep.C += step.Dt * b._linearVelocity;
 				b._sweep.A += step.Dt * b._angularVelocity;
 
-				// Compute new transform
+				// Compute new Transform
 				b.SynchronizeTransform();
 
 				// Note: shapes are synchronized later.
@@ -362,7 +362,7 @@ namespace Box2DNet.Dynamics
 						Common.Math.Abs(b._linearVelocity.Y) > Settings.LinearSleepTolerance)
 #else
  b._angularVelocity * b._angularVelocity > angTolSqr ||
-						Vec2.Dot(b._linearVelocity, b._linearVelocity) > linTolSqr)
+						Vector2.Dot(b._linearVelocity, b._linearVelocity) > linTolSqr)
 #endif
 					{
 						b._sleepTime = 0.0f;
@@ -381,7 +381,7 @@ namespace Box2DNet.Dynamics
 					{
 						Body b = _bodies[i];
 						b._flags |= Body.BodyFlags.Sleep;
-						b._linearVelocity = Vec2.Zero;
+						b._linearVelocity = Vector2.Zero;
 						b._angularVelocity = 0.0f;
 					}
 				}
@@ -424,11 +424,10 @@ namespace Box2DNet.Dynamics
 					continue;
 
 				// Check for large velocities.
-				Vec2 translation = subStep.Dt * b._linearVelocity;
-				if (Vec2.Dot(translation, translation) > Settings.MaxTranslationSquared)
+				Vector2 translation = subStep.Dt * b._linearVelocity;
+				if (Vector2.Dot(translation, translation) > Settings.MaxTranslationSquared)
 				{
-					translation.Normalize();
-					b._linearVelocity = (Settings.MaxTranslation * subStep.Inv_Dt) * translation;
+					b._linearVelocity = (Settings.MaxTranslation * subStep.Inv_Dt) * translation.Normalized();
 				}
 
 				float rotation = subStep.Dt * b._angularVelocity;
@@ -452,7 +451,7 @@ namespace Box2DNet.Dynamics
 				b._sweep.C += subStep.Dt * b._linearVelocity;
 				b._sweep.A += subStep.Dt * b._angularVelocity;
 
-				// Compute new transform
+				// Compute new Transform
 				b.SynchronizeTransform();
 
 				// Note: shapes are synchronized later.

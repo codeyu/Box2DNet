@@ -16,8 +16,9 @@
 * 3. This notice may not be removed or altered from any source distribution.
 */
 
-using Box2DNet.Dynamics;
 using Box2DNet.Common;
+
+using System.Numerics;
 
 namespace Box2DNet.Dynamics.Controllers
 {
@@ -82,7 +83,7 @@ namespace Box2DNet.Dynamics.Controllers
                 if (body.IsSleeping())
                     continue;
 
-                Vec2 damping = body.GetWorldVector(Math.Mul(T, body.GetLocalVector(body.GetLinearVelocity())));
+                Vector2 damping = body.GetWorldVector(T.Multiply(body.GetLocalVector(body.GetLinearVelocity())));
                 body.SetLinearVelocity(body.GetLinearVelocity() + timestep*damping);
             }
         }

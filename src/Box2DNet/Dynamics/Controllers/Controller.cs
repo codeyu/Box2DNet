@@ -1,6 +1,4 @@
-﻿using System;
-using Box2DNet;
-using Box2DNet.Dynamics;
+﻿using System; using System.Numerics;
 
 namespace Box2DNet.Dynamics.Controllers
 {
@@ -31,7 +29,7 @@ namespace Box2DNet.Dynamics.Controllers
         protected ControllerEdge _bodyList;
         protected int _bodyCount;
 
-        protected Controller()
+        public Controller()
         {
             _bodyList = null;
             _bodyCount = 0;
@@ -71,16 +69,14 @@ namespace Box2DNet.Dynamics.Controllers
         /// </summary>
         public void AddBody(Body body)
         {
-            ControllerEdge edge = new ControllerEdge
-            {
-                body = body,
-                controller = this,
-                nextBody = _bodyList,
-                prevBody = null
-            };
+            ControllerEdge edge = new ControllerEdge();
 
+            edge.body = body;
+            edge.controller = this;
 
             //Add edge to controller list
+            edge.nextBody = _bodyList;
+            edge.prevBody = null;
             if (_bodyList != null)
                 _bodyList.prevBody = edge;
             _bodyList = edge;

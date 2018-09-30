@@ -1,5 +1,5 @@
 ﻿/*
-  Box2DX Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
+  Box2DNet Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
   Box2D original C++ version Copyright (c) 2006-2009 Erin Catto http://www.gphysics.com
 
   This software is provided 'as-is', without any express or implied
@@ -19,7 +19,6 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-using Box2DNet;
 using Box2DNet.Collision;
 using Box2DNet.Common;
 
@@ -35,12 +34,12 @@ namespace Box2DNet.Dynamics
 			CollideShapeFunction = CollideCircles;
 		}
 
-		private static void CollideCircles(ref Manifold manifold, Shape shape1, XForm xf1, Shape shape2, XForm xf2)
+		private static void CollideCircles(ref Manifold manifold, Shape shape1, Transform xf1, Shape shape2, Transform xf2)
 		{
 			Collision.Collision.CollideCircles(ref manifold, (CircleShape)shape1, xf1, (CircleShape)shape2, xf2);
 		}
 
-		public new static Contact Create(Fixture fixtureA, Fixture fixtureB)
+		new public static Contact Create(Fixture fixtureA, Fixture fixtureB)
 		{
 			return new CircleContact(fixtureA, fixtureB);
 		}

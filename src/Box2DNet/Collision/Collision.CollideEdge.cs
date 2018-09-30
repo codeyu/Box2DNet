@@ -1,5 +1,5 @@
 ﻿/*
-  Box2DX Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
+  Box2DNet Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
   Box2D original C++ version Copyright (c) 2006-2009 Erin Catto http://www.gphysics.com
 
   This software is provided 'as-is', without any express or implied
@@ -20,33 +20,36 @@
 */
 
 using Box2DNet.Common;
+ 
 
+using Transform = Box2DNet.Common.Transform;
+using System.Numerics;
 namespace Box2DNet.Collision
 {
 	public partial class Collision
 	{
 		// This implements 2-sided edge vs circle collision.
-		public static void CollideEdgeAndCircle(ref Manifold manifold, EdgeShape edge, XForm transformA, CircleShape circle, XForm transformB)
+		public static void CollideEdgeAndCircle(ref Manifold manifold, EdgeShape edge, Transform transformA, CircleShape circle, Transform transformB)
 		{
 			manifold.PointCount = 0;
-			Vec2 cLocal = Common.Math.MulT(transformA, Common.Math.Mul(transformB, circle._position));
-			Vec2 normal = edge._normal;
-			Vec2 v1 = edge._v1;
-			Vec2 v2 = edge._v2;
+			Vector2 cLocal = Common.Math.MulT(transformA, Common.Math.Mul(transformB, circle._position));
+			Vector2 normal = edge._normal;
+			Vector2 v1 = edge._v1;
+			Vector2 v2 = edge._v2;
 			float radius = edge._radius + circle._radius;
 
 			// Barycentric coordinates
-			float u1 = Vec2.Dot(cLocal - v1, v2 - v1);
-			float u2 = Vec2.Dot(cLocal - v2, v1 - v2);
+			float u1 = Vector2.Dot(cLocal - v1, v2 - v1);
+			float u2 = Vector2.Dot(cLocal - v2, v1 - v2);
 
 			if (u1 <= 0.0f)
 			{
 				// Behind v1
-				if (Vec2.DistanceSquared(cLocal, v1) > radius * radius)
+				if ((cLocal- v1).LengthSquared() > radius * radius)
 				{
 					return;
 				}
-
+				
 				manifold.PointCount = 1;
 				manifold.Type = ManifoldType.FaceA;
 				manifold.LocalPlaneNormal = cLocal - v1;
@@ -58,7 +61,7 @@ namespace Box2DNet.Collision
 			else if (u2 <= 0.0f)
 			{
 				// Ahead of v2
-				if (Vec2.DistanceSquared(cLocal, v2) > radius * radius)
+				if ((cLocal- v2).LengthSquared() > radius * radius)
 				{
 					return;
 				}
@@ -73,7 +76,7 @@ namespace Box2DNet.Collision
 			}
 			else
 			{
-				float separation = Vec2.Dot(cLocal - v1, normal);
+				float separation = Vector2.Dot(cLocal - v1, normal);
 				if (separation < -radius || radius < separation)
 				{
 					return;
@@ -89,12 +92,12 @@ namespace Box2DNet.Collision
 		}
 
 		// Polygon versus 2-sided edge.
-		public static void CollidePolyAndEdge(ref Manifold manifold, PolygonShape polygon, XForm transformA, EdgeShape edge, XForm transformB)
+		public static void CollidePolyAndEdge(ref Manifold manifold, PolygonShape polygon, Transform TransformA, EdgeShape edge, Transform TransformB)
 		{
 			PolygonShape polygonB = new PolygonShape();
 			polygonB.SetAsEdge(edge._v1, edge._v2);
 
-			CollidePolygons(ref manifold, polygon, transformA, polygonB, transformB);
+			CollidePolygons(ref manifold, polygon, TransformA, polygonB, TransformB);
 		}
 	}
 }

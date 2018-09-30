@@ -1,5 +1,5 @@
 ﻿/*
-  Box2DX Copyright (c) 2008 Ihar Kalasouski http://code.google.com/p/box2dx
+  Box2DNet Copyright (c) 2018 codeyu https://github.com/codeyu/Box2DNet
   Box2D original C++ version Copyright (c) 2006-2007 Erin Catto http://www.gphysics.com
 
   This software is provided 'as-is', without any express or implied
@@ -38,14 +38,14 @@ Bullet (http:/www.bulletphysics.com).
 // - no broadphase is perfect and neither is this one: it is not great for huge
 //   worlds (use a multi-SAP instead), it is not great for large objects.
 
-#define ALLOWUNSAFE
 //#define TARGET_FLOAT32_IS_FIXED
 
-using System;
+using System; using System.Numerics;
 using System.Collections.Generic;
 using System.Text;
-using Box2DNet;
+
 using Box2DNet.Common;
+ 
 
 namespace Box2DNet.Collision
 {
@@ -116,7 +116,7 @@ namespace Box2DNet.Collision
 		public int _queryResultCount;
 
 		public AABB _worldAABB;
-		public Vec2 _quantizationFactor;
+		public Vector2 _quantizationFactor;
 		public int _proxyCount;
 		public ushort _timeStamp;
 
@@ -131,7 +131,7 @@ namespace Box2DNet.Collision
 			_worldAABB = worldAABB;
 			_proxyCount = 0;
 
-			Vec2 d = worldAABB.UpperBound - worldAABB.LowerBound;
+			Vector2 d = worldAABB.UpperBound - worldAABB.LowerBound;
 			_quantizationFactor.X = (float)BROADPHASE_MAX / d.X;
 			_quantizationFactor.Y = (float)BROADPHASE_MAX / d.Y;
 
@@ -169,8 +169,8 @@ namespace Box2DNet.Collision
 		// is the number of proxies that are out of range.
 		public bool InRange(AABB aabb)
 		{
-			Vec2 d = Common.Math.Max(aabb.LowerBound - _worldAABB.UpperBound, _worldAABB.LowerBound - aabb.UpperBound);
-			return Common.Math.Max(d.X, d.Y) < 0.0f;
+			Vector2 d = Vector2.Max(aabb.LowerBound - _worldAABB.UpperBound, _worldAABB.LowerBound - aabb.UpperBound);
+			return System.Math.Max(d.X, d.Y) < 0.0f;
 		}
 
 		// Create and destroy proxies. These call Flush first.
@@ -640,7 +640,7 @@ namespace Box2DNet.Collision
 		public
 #if ALLOWUNSAFE
 		unsafe 
-#endif //#if ALLOWUNSAFE
+#endif 
 		int QuerySegment(Segment segment, object[] userData, int maxCount, SortKeyFunc sortKey)
 		{
 			float maxLambda = 1;
@@ -666,7 +666,10 @@ namespace Box2DNet.Collision
 			int xIndex;
 			int yIndex;
 
-		    // TODO_ERIN implement fast float to ushort conversion.
+			ushort proxyId;
+			Proxy proxy;
+
+			// TODO_ERIN implement fast float to ushort conversion.
 			startValues[0] = (ushort)((ushort)(p1x) & (BROADPHASE_MAX - 1));
 			startValues2[0] = (ushort)((ushort)(p1x) | 1);
 
@@ -763,9 +766,7 @@ namespace Box2DNet.Collision
 				}
 				for (; ; )
 				{
-				    ushort proxyId;
-				    Proxy proxy;
-				    if (sy == 0 || (sx != 0 && xProgress < yProgress))
+					if (sy == 0 || (sx != 0 && xProgress < yProgress))
 					{
 						if (xProgress > maxLambda)
 							break;
@@ -895,7 +896,7 @@ namespace Box2DNet.Collision
 					}
 				}
 
-			    break;
+				break;
 			}
 
 			int count = 0;
@@ -954,8 +955,8 @@ namespace Box2DNet.Collision
 			Box2DNetDebug.Assert(aabb.UpperBound.X >= aabb.LowerBound.X);
 			Box2DNetDebug.Assert(aabb.UpperBound.Y >= aabb.LowerBound.Y);
 
-			Vec2 minVertex = Common.Math.Clamp(aabb.LowerBound, _worldAABB.LowerBound, _worldAABB.UpperBound);
-			Vec2 maxVertex = Common.Math.Clamp(aabb.UpperBound, _worldAABB.LowerBound, _worldAABB.UpperBound);
+			Vector2 minVertex = Common.Math.Clamp(aabb.LowerBound, _worldAABB.LowerBound, _worldAABB.UpperBound);
+			Vector2 maxVertex = Common.Math.Clamp(aabb.UpperBound, _worldAABB.LowerBound, _worldAABB.UpperBound);
 
 			// Bump lower bounds downs and upper bounds up. This ensures correct sorting of
 			// lower/upper bounds that would have equal values.

@@ -1,5 +1,5 @@
 ﻿/*
-  Box2DX Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
+  Box2DNet Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
   Box2D original C++ version Copyright (c) 2006-2009 Erin Catto http://www.gphysics.com
 
   This software is provided 'as-is', without any express or implied
@@ -19,8 +19,11 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-using Box2DNet;
+using System.Numerics;
 using Box2DNet.Common;
+ 
+
+using Transform = Box2DNet.Common.Transform;
 
 namespace Box2DNet.Collision
 {
@@ -44,10 +47,11 @@ namespace Box2DNet.Collision
 			FaceA,
 			FaceB
 		};
-
+		
+#if ALLOWUNSAFE
 		internal unsafe void Initialize(SimplexCache* cache,
-			Shape shapeA, XForm transformA,
-			Shape shapeB, XForm transformB)
+			Shape shapeA, Transform TransformA,
+			Shape shapeB, Transform TransformB)
 		{
 			ShapeA = shapeA;
 			ShapeB = shapeB;
@@ -57,10 +61,10 @@ namespace Box2DNet.Collision
 			if (count == 1)
 			{
 				FaceType = Type.Points;
-				Vec2 localPointA = ShapeA.GetVertex(cache->IndexA[0]);
-				Vec2 localPointB = ShapeB.GetVertex(cache->IndexB[0]);
-				Vec2 pointA = Common.Math.Mul(transformA, localPointA);
-				Vec2 pointB = Common.Math.Mul(transformB, localPointB);
+				Vector2 localPointA = ShapeA.GetVertex(cache->IndexA[0]);
+				Vector2 localPointB = ShapeB.GetVertex(cache->IndexB[0]);
+				Vector2 pointA = TransformA.TransformPoint(localPointA);
+				Vector2 pointB = TransformB.TransformPoint(localPointB);
 				Axis = pointB - pointA;
 				Axis.Normalize();
 			}
@@ -68,18 +72,18 @@ namespace Box2DNet.Collision
 			{
 				// Two points on A and one on B
 				FaceType = Type.FaceA;
-				Vec2 localPointA1 = ShapeA.GetVertex(cache->IndexA[0]);
-				Vec2 localPointA2 = ShapeA.GetVertex(cache->IndexA[1]);
-				Vec2 localPointB = ShapeB.GetVertex(cache->IndexB[0]);
+				Vector2 localPointA1 = ShapeA.GetVertex(cache->IndexA[0]);
+				Vector2 localPointA2 = ShapeA.GetVertex(cache->IndexA[1]);
+				Vector2 localPointB = ShapeB.GetVertex(cache->IndexB[0]);
 				LocalPoint = 0.5f * (localPointA1 + localPointA2);
-				Axis = Vec2.Cross(localPointA2 - localPointA1, 1.0f);
+				Axis = (localPointA2 - localPointA1).CrossScalarPostMultiply(1.0f);
 				Axis.Normalize();
 
-				Vec2 normal = Common.Math.Mul(transformA.R, Axis);
-				Vec2 pointA = Common.Math.Mul(transformA, LocalPoint);
-				Vec2 pointB = Common.Math.Mul(transformB, localPointB);
+				Vector2 normal = TransformA.TransformDirection(Axis);
+				Vector2 pointA = TransformA.TransformPoint(LocalPoint);
+				Vector2 pointB = TransformB.TransformPoint(localPointB);
 
-				float s = Vec2.Dot(pointB - pointA, normal);
+				float s = Vector2.Dot(pointB - pointA, normal);
 				if (s < 0.0f)
 				{
 					Axis = -Axis;
@@ -90,66 +94,129 @@ namespace Box2DNet.Collision
 				// Two points on B and one or two points on A.
 				// We ignore the second point on A.
 				FaceType = Type.FaceB;
-				Vec2 localPointA = shapeA.GetVertex(cache->IndexA[0]);
-				Vec2 localPointB1 = shapeB.GetVertex(cache->IndexB[0]);
-				Vec2 localPointB2 = shapeB.GetVertex(cache->IndexB[1]);
+				Vector2 localPointA = shapeA.GetVertex(cache->IndexA[0]);
+				Vector2 localPointB1 = shapeB.GetVertex(cache->IndexB[0]);
+				Vector2 localPointB2 = shapeB.GetVertex(cache->IndexB[1]);
 				LocalPoint = 0.5f * (localPointB1 + localPointB2);
-				Axis = Vec2.Cross(localPointB2 - localPointB1, 1.0f);
+				Axis = (localPointB2 - localPointB1).CrossScalarPostMultiply(1.0f);
 				Axis.Normalize();
 
-				Vec2 normal = Common.Math.Mul(transformB.R, Axis);
-				Vec2 pointB = Common.Math.Mul(transformB, LocalPoint);
-				Vec2 pointA = Common.Math.Mul(transformA, localPointA);
+				Vector2 normal = TransformB.TransformDirection(Axis);
+				Vector2 pointB = TransformB.TransformPoint(LocalPoint);
+				Vector2 pointA = TransformA.TransformPoint(localPointA);
 
-				float s = Vec2.Dot(pointA - pointB, normal);
+				float s = Vector2.Dot(pointA - pointB, normal);
 				if (s < 0.0f)
 				{
 					Axis = -Axis;
 				}
 			}
 		}
+#else
+		internal void Initialize(SimplexCache cache, Shape shapeA, Transform transformA, Shape shapeB, Transform transformB)
+		{
+			ShapeA = shapeA;
+			ShapeB = shapeB;
+			int count = cache.Count;
+			Box2DNetDebug.Assert(0 < count && count < 3);
 
-		internal float Evaluate(XForm transformA, XForm transformB)
+			if (count == 1)
+			{
+				FaceType = Type.Points;
+				Vector2 localPointA = ShapeA.GetVertex(cache.IndexA[0]);
+				Vector2 localPointB = ShapeB.GetVertex(cache.IndexB[0]);
+				Vector2 pointA = transformA.TransformPoint(localPointA);
+				Vector2 pointB = transformB.TransformPoint(localPointB);
+				Axis = pointB - pointA;
+				Axis.Normalize();
+			}
+			else if (cache.IndexB[0] == cache.IndexB[1])
+			{
+				// Two points on A and one on B
+				FaceType = Type.FaceA;
+				Vector2 localPointA1 = ShapeA.GetVertex(cache.IndexA[0]);
+				Vector2 localPointA2 = ShapeA.GetVertex(cache.IndexA[1]);
+				Vector2 localPointB = ShapeB.GetVertex(cache.IndexB[0]);
+				LocalPoint = 0.5f * (localPointA1 + localPointA2);
+				Axis = (localPointA2 - localPointA1).CrossScalarPostMultiply(1.0f);
+				Axis.Normalize();
+
+				Vector2 normal = transformA.TransformDirection(Axis);
+				Vector2 pointA = transformA.TransformPoint(LocalPoint);
+				Vector2 pointB = transformB.TransformPoint(localPointB);
+
+				float s = Vector2.Dot(pointB - pointA, normal);
+				if (s < 0.0f)
+				{
+					Axis = -Axis;
+				}
+			}
+			else
+			{
+				// Two points on B and one or two points on A.
+				// We ignore the second point on A.
+				FaceType = Type.FaceB;
+				Vector2 localPointA = shapeA.GetVertex(cache.IndexA[0]);
+				Vector2 localPointB1 = shapeB.GetVertex(cache.IndexB[0]);
+				Vector2 localPointB2 = shapeB.GetVertex(cache.IndexB[1]);
+				LocalPoint = 0.5f * (localPointB1 + localPointB2);
+				Axis = (localPointB2 - localPointB1).CrossScalarPostMultiply(1.0f);
+				Axis.Normalize();
+
+				Vector2 normal = transformB.TransformDirection(Axis);
+				Vector2 pointB = transformB.TransformPoint(LocalPoint);
+				Vector2 pointA = transformA.TransformPoint(localPointA);
+
+				float s = Vector2.Dot(pointA - pointB, normal);
+				if (s < 0.0f)
+				{
+					Axis = -Axis;
+				}
+			}
+		}
+#endif
+
+		internal float Evaluate(Transform TransformA, Transform TransformB)
 		{
 			switch (FaceType)
 			{
 				case Type.Points:
 					{
-						Vec2 axisA = Common.Math.MulT(transformA.R, Axis);
-						Vec2 axisB = Common.Math.MulT(transformB.R, -Axis);
-						Vec2 localPointA = ShapeA.GetSupportVertex(axisA);
-						Vec2 localPointB = ShapeB.GetSupportVertex(axisB);
-						Vec2 pointA = Common.Math.Mul(transformA, localPointA);
-						Vec2 pointB = Common.Math.Mul(transformB, localPointB);
-						float separation = Vec2.Dot(pointB - pointA, Axis);
+						Vector2 axisA = TransformA.InverseTransformDirection(Axis);
+						Vector2 axisB = TransformB.InverseTransformDirection(-Axis);
+						Vector2 localPointA = ShapeA.GetSupportVertex(axisA);
+						Vector2 localPointB = ShapeB.GetSupportVertex(axisB);
+						Vector2 pointA = TransformA.TransformPoint(localPointA);
+						Vector2 pointB = TransformB.TransformPoint(localPointB);
+						float separation = Vector2.Dot(pointB - pointA, Axis);
 						return separation;
 					}
 
 				case Type.FaceA:
 					{
-						Vec2 normal = Common.Math.Mul(transformA.R, Axis);
-						Vec2 pointA = Common.Math.Mul(transformA, LocalPoint);
+						Vector2 normal = TransformA.TransformDirection(Axis);
+						Vector2 pointA = TransformA.TransformPoint(LocalPoint);
 
-						Vec2 axisB = Common.Math.MulT(transformB.R, -normal);
+						Vector2 axisB = TransformB.InverseTransformDirection(-normal);
 
-						Vec2 localPointB = ShapeB.GetSupportVertex(axisB);
-						Vec2 pointB = Common.Math.Mul(transformB, localPointB);
+						Vector2 localPointB = ShapeB.GetSupportVertex(axisB);
+						Vector2 pointB = TransformB.TransformPoint(localPointB);
 
-						float separation = Vec2.Dot(pointB - pointA, normal);
+						float separation = Vector2.Dot(pointB - pointA, normal);
 						return separation;
 					}
 
 				case Type.FaceB:
 					{
-						Vec2 normal = Common.Math.Mul(transformB.R, Axis);
-						Vec2 pointB = Common.Math.Mul(transformB, LocalPoint);
+						Vector2 normal = TransformB.TransformDirection(Axis);
+						Vector2 pointB = TransformB.TransformPoint(LocalPoint);
 
-						Vec2 axisA = Common.Math.MulT(transformA.R, -normal);
+						Vector2 axisA = TransformA.InverseTransformDirection(-normal);
 
-						Vec2 localPointA = ShapeA.GetSupportVertex(axisA);
-						Vec2 pointA = Common.Math.Mul(transformA, localPointA);
+						Vector2 localPointA = ShapeA.GetSupportVertex(axisA);
+						Vector2 pointA = TransformA.TransformPoint(localPointA);
 
-						float separation = Vec2.Dot(pointA - pointB, normal);
+						float separation = Vector2.Dot(pointA - pointB, normal);
 						return separation;
 					}
 
@@ -162,8 +229,8 @@ namespace Box2DNet.Collision
 		internal Shape ShapeA;
 		internal Shape ShapeB;
 		internal Type FaceType;
-		internal Vec2 LocalPoint;
-		internal Vec2 Axis;
+		internal Vector2 LocalPoint;
+		internal Vector2 Axis;
 	}
 
 	public partial class Collision
@@ -201,13 +268,14 @@ namespace Box2DNet.Collision
 			float target = 0.0f;
 
 			// Prepare input for distance query.
-		    SimplexCache cache = new SimplexCache {Count = 0};
-		    DistanceInput distanceInput;
+			SimplexCache cache = new SimplexCache();
+			cache.Count = 0;
+			DistanceInput distanceInput;
 			distanceInput.UseRadii = false;
 
 			for (; ; )
 			{
-				XForm xfA, xfB;
+				Transform xfA, xfB;
 				sweepA.GetTransform(out xfA, alpha);
 				sweepB.GetTransform(out xfB, alpha);
 
@@ -224,10 +292,14 @@ namespace Box2DNet.Collision
 				}
 
 				SeparationFunction fcn = new SeparationFunction();
+#if ALLOWUNSAFE
 				unsafe
 				{
 					fcn.Initialize(&cache, shapeA, xfA, shapeB, xfB);
 				}
+#else 
+				fcn.Initialize(cache, shapeA, xfA, shapeB, xfB);
+#endif 
 
 				float separation = fcn.Evaluate(xfA, xfB);
 				if (separation <= 0.0f)
@@ -241,7 +313,14 @@ namespace Box2DNet.Collision
 					// Compute a reasonable target distance to give some breathing room
 					// for conservative advancement. We take advantage of the shape radii
 					// to create additional clearance.
-					target = separation > radius ? Common.Math.Max(radius - tolerance, 0.75f * radius) : Common.Math.Max(separation - tolerance, 0.02f * radius);
+					if (separation > radius)
+					{
+						target = Common.Math.Max(radius - tolerance, 0.75f * radius);
+					}
+					else
+					{
+						target = Common.Math.Max(separation - tolerance, 0.02f * radius);
+					}
 				}
 
 				if (separation - target < 0.5f * tolerance)

@@ -1,5 +1,5 @@
 ﻿/*
-  Box2DX Copyright (c) 2008 Ihar Kalasouski http://code.google.com/p/box2dx
+  Box2DNet Copyright (c) 2018 codeyu https://github.com/codeyu/Box2DNet
   Box2D original C++ version Copyright (c) 2006-2007 Erin Catto http://www.gphysics.com
 
   This software is provided 'as-is', without any express or implied
@@ -32,16 +32,16 @@
 // J = [0 0 -1 0 0 1]
 // K = invI1 + invI2
 
-using System;
+using System; using System.Numerics;
 using System.Collections.Generic;
 using System.Text;
-using Box2DNet;
-using Box2DNet.Dynamics;
+
 using Box2DNet.Common;
+ 
 
 namespace Box2DNet.Dynamics
 {
-	using Box2DXMath = Box2DNet.Common.Math;
+	using Box2DNetMath = Box2DNet.Common.Math;
 	using SystemMath = System.Math;
 
 	/// <summary>
@@ -62,8 +62,8 @@ namespace Box2DNet.Dynamics
 		public RevoluteJointDef()
 		{
 			Type = JointType.RevoluteJoint;
-			LocalAnchor1.Set(0.0f, 0.0f);
-			LocalAnchor2.Set(0.0f, 0.0f);
+			LocalAnchor1 = new Vector2(0.0f, 0.0f);
+			LocalAnchor2 = new Vector2(0.0f, 0.0f);
 			ReferenceAngle = 0.0f;
 			LowerAngle = 0.0f;
 			UpperAngle = 0.0f;
@@ -77,7 +77,7 @@ namespace Box2DNet.Dynamics
 		/// Initialize the bodies, anchors, and reference angle using the world
 		/// anchor.
 		/// </summary>
-		public void Initialize(Body body1, Body body2, Vec2 anchor)
+		public void Initialize(Body body1, Body body2, Vector2 anchor)
 		{
 			Body1 = body1;
 			Body2 = body2;
@@ -89,12 +89,12 @@ namespace Box2DNet.Dynamics
 		/// <summary>
 		/// The local anchor point relative to body1's origin.
 		/// </summary>
-		public Vec2 LocalAnchor1;
+		public Vector2 LocalAnchor1;
 
 		/// <summary>
 		/// The local anchor point relative to body2's origin.
 		/// </summary>
-		public Vec2 LocalAnchor2;
+		public Vector2 LocalAnchor2;
 
 		/// <summary>
 		/// The body2 angle minus body1 angle in the reference state (radians).
@@ -143,9 +143,9 @@ namespace Box2DNet.Dynamics
 	/// </summary>
 	public class RevoluteJoint : Joint
 	{
-		public Vec2 _localAnchor1;	// relative
-		public Vec2 _localAnchor2;
-		public Vec3 _impulse;
+		public Vector2 _localAnchor1;	// relative
+		public Vector2 _localAnchor2;
+		public Vector3 _impulse;
 		public float _motorImpulse;
 		public Mat33 _mass; //effective mass for p2p constraint.
 		public float _motorMass;	// effective mass for motor/limit angular constraint.
@@ -160,19 +160,19 @@ namespace Box2DNet.Dynamics
 		public float _upperAngle;
 		public LimitState _limitState;
 
-		public override Vec2 Anchor1
+		public override Vector2 Anchor1
 		{
 			get { return _body1.GetWorldPoint(_localAnchor1); }
 		}
 
-		public override Vec2 Anchor2
+		public override Vector2 Anchor2
 		{
 			get { return _body2.GetWorldPoint(_localAnchor2); }
 		}
 
-		public override Vec2 GetReactionForce(float inv_dt)
+		public override Vector2 GetReactionForce(float inv_dt)
 		{
-			Vec2 P = new Vec2(_impulse.X, _impulse.Y);
+			Vector2 P = _impulse.ToVector2();
 			return inv_dt * P;
 		}
 
@@ -311,7 +311,7 @@ namespace Box2DNet.Dynamics
 			_localAnchor2 = def.LocalAnchor2;
 			_referenceAngle = def.ReferenceAngle;
 
-			_impulse = new Vec3();
+			_impulse = Vector3.Zero;
 			_motorImpulse = 0.0f;
 
 			_lowerAngle = def.LowerAngle;
@@ -336,8 +336,8 @@ namespace Box2DNet.Dynamics
 			}
 
 			// Compute the effective mass matrix.
-			Vec2 r1 = Box2DXMath.Mul(b1.GetXForm().R, _localAnchor1 - b1.GetLocalCenter());
-			Vec2 r2 = Box2DXMath.Mul(b2.GetXForm().R, _localAnchor2 - b2.GetLocalCenter());
+			Vector2 r1 = b1.GetTransform().TransformDirection(_localAnchor1 - b1.GetLocalCenter());
+			Vector2 r2 = b2.GetTransform().TransformDirection(_localAnchor2 - b2.GetLocalCenter());
 
 			// J = [-I -r1_skew I r2_skew]
 			//     [ 0       -1 0       1]
@@ -356,7 +356,7 @@ namespace Box2DNet.Dynamics
 			_mass.Col3.X = -r1.Y * i1 - r2.Y * i2;
 			_mass.Col1.Y = _mass.Col2.X;
 			_mass.Col2.Y = m1 + m2 + r1.X * r1.X * i1 + r2.X * r2.X * i2;
-			_mass.Col3.Y = r1.X * i1 + r2.X * i2;
+			_mass.Col3.Y = r1.X * i1 + r2.Y * i2;
 			_mass.Col1.Z = _mass.Col3.X;
 			_mass.Col2.Z = _mass.Col3.Y;
 			_mass.Col3.Z = i1 + i2;
@@ -371,7 +371,7 @@ namespace Box2DNet.Dynamics
 			if (_enableLimit)
 			{
 				float jointAngle = b2._sweep.A - b1._sweep.A - _referenceAngle;
-				if (Box2DXMath.Abs(_upperAngle - _lowerAngle) < 2.0f * Settings.AngularSlop)
+				if (Box2DNetMath.Abs(_upperAngle - _lowerAngle) < 2.0f * Settings.AngularSlop)
 				{
 					_limitState = LimitState.EqualLimits;
 				}
@@ -408,17 +408,17 @@ namespace Box2DNet.Dynamics
 				_impulse *= step.DtRatio;
 				_motorImpulse *= step.DtRatio;
 
-				Vec2 P = new Vec2(_impulse.X, _impulse.Y);
+				Vector2 P = _impulse.ToVector2();
 
 				b1._linearVelocity -= m1 * P;
-				b1._angularVelocity -= i1 * (Vec2.Cross(r1, P) + _motorImpulse + _impulse.Z);
+				b1._angularVelocity -= i1 * (r1.Cross(P) + _motorImpulse + _impulse.Z);
 
 				b2._linearVelocity += m2 * P;
-				b2._angularVelocity += i2 * (Vec2.Cross(r2, P) + _motorImpulse + _impulse.Z);
+				b2._angularVelocity += i2 * (r2.Cross(P) + _motorImpulse + _impulse.Z);
 			}
 			else
 			{
-				_impulse.SetZero();
+				_impulse = Vector3.Zero;
 				_motorImpulse = 0.0f;
 			}
 		}
@@ -428,9 +428,9 @@ namespace Box2DNet.Dynamics
 			Body b1 = _body1;
 			Body b2 = _body2;
 
-			Vec2 v1 = b1._linearVelocity;
+			Vector2 v1 = b1._linearVelocity;
 			float w1 = b1._angularVelocity;
-			Vec2 v2 = b2._linearVelocity;
+			Vector2 v2 = b2._linearVelocity;
 			float w2 = b2._angularVelocity;
 
 			float m1 = b1._invMass, m2 = b2._invMass;
@@ -443,7 +443,7 @@ namespace Box2DNet.Dynamics
 				float impulse = _motorMass * (-Cdot);
 				float oldImpulse = _motorImpulse;
 				float maxImpulse = step.Dt * _maxMotorTorque;
-				_motorImpulse = Box2DXMath.Clamp(_motorImpulse + impulse, -maxImpulse, maxImpulse);
+				_motorImpulse = Box2DNet.Common.Math.Clamp(_motorImpulse + impulse, -maxImpulse, maxImpulse);
 				impulse = _motorImpulse - oldImpulse;
 
 				w1 -= i1 * impulse;
@@ -453,15 +453,15 @@ namespace Box2DNet.Dynamics
 			//Solve limit constraint.
 			if (_enableLimit && _limitState != LimitState.InactiveLimit)
 			{
-				Vec2 r1 = Box2DXMath.Mul(b1.GetXForm().R, _localAnchor1 - b1.GetLocalCenter());
-				Vec2 r2 = Box2DXMath.Mul(b2.GetXForm().R, _localAnchor2 - b2.GetLocalCenter());
+				Vector2 r1 = b1.GetTransform().TransformDirection(_localAnchor1 - b1.GetLocalCenter());
+				Vector2 r2 = b2.GetTransform().TransformDirection(_localAnchor2 - b2.GetLocalCenter());
 
 				// Solve point-to-point constraint
-				Vec2 Cdot1 = v2 + Vec2.Cross(w2, r2) - v1 - Vec2.Cross(w1, r1);
+				Vector2 Cdot1 = v2 + r2.CrossScalarPreMultiply(w2) - v1 - r1.CrossScalarPreMultiply(w1);
 				float Cdot2 = w2 - w1;
-				Vec3 Cdot = new Vec3(Cdot1.X, Cdot1.Y, Cdot2);
+				Vector3 Cdot = new Vector3(Cdot1.X, Cdot1.Y, Cdot2);
 
-				Vec3 impulse = _mass.Solve33(-Cdot);
+				Vector3 impulse = _mass.Solve33(-Cdot);
 
 				if (_limitState == LimitState.EqualLimits)
 				{
@@ -472,7 +472,7 @@ namespace Box2DNet.Dynamics
 					float newImpulse = _impulse.Z + impulse.Z;
 					if (newImpulse < 0.0f)
 					{
-						Vec2 reduced = _mass.Solve22(-Cdot1);
+						Vector2 reduced = _mass.Solve22(-Cdot1);
 						impulse.X = reduced.X;
 						impulse.Y = reduced.Y;
 						impulse.Z = -_impulse.Z;
@@ -486,7 +486,7 @@ namespace Box2DNet.Dynamics
 					float newImpulse = _impulse.Z + impulse.Z;
 					if (newImpulse > 0.0f)
 					{
-						Vec2 reduced = _mass.Solve22(-Cdot1);
+						Vector2 reduced = _mass.Solve22(-Cdot1);
 						impulse.X = reduced.X;
 						impulse.Y = reduced.Y;
 						impulse.Z = -_impulse.Z;
@@ -496,31 +496,31 @@ namespace Box2DNet.Dynamics
 					}
 				}
 
-				Vec2 P = new Vec2(impulse.X, impulse.Y);
+				Vector2 P = impulse.ToVector2();
 
 				v1 -= m1 * P;
-				w1 -= i1 * (Vec2.Cross(r1, P) + impulse.Z);
+				w1 -= i1 * (r1.Cross(P) + impulse.Z);
 
 				v2 += m2 * P;
-				w2 += i2 * (Vec2.Cross(r2, P) + impulse.Z);
+				w2 += i2 * (r2.Cross(P) + impulse.Z);
 			}
 			else
 			{
-				Vec2 r1 = Box2DXMath.Mul(b1.GetXForm().R, _localAnchor1 - b1.GetLocalCenter());
-				Vec2 r2 = Box2DXMath.Mul(b2.GetXForm().R, _localAnchor2 - b2.GetLocalCenter());
+				Vector2 r1 = b1.GetTransform().TransformDirection(_localAnchor1 - b1.GetLocalCenter());
+				Vector2 r2 = b2.GetTransform().TransformDirection(_localAnchor2 - b2.GetLocalCenter());
 
 				// Solve point-to-point constraint
-				Vec2 Cdot = v2 + Vec2.Cross(w2, r2) - v1 - Vec2.Cross(w1, r1);
-				Vec2 impulse = _mass.Solve22(-Cdot);
+				Vector2 Cdot = v2 + r2.CrossScalarPreMultiply(w2) - v1 - r1.CrossScalarPreMultiply(w1);
+				Vector2 impulse = _mass.Solve22(-Cdot);
 
 				_impulse.X += impulse.X;
 				_impulse.Y += impulse.Y;
 
 				v1 -= m1 * impulse;
-				w1 -= i1 * Vec2.Cross(r1, impulse);
+				w1 -= i1 * r1.Cross(impulse);
 
 				v2 += m2 * impulse;
-				w2 += i2 * Vec2.Cross(r2, impulse);
+				w2 += i2 * r2.Cross(impulse);
 			}
 
 			b1._linearVelocity = v1;
@@ -548,9 +548,9 @@ namespace Box2DNet.Dynamics
 				if (_limitState == LimitState.EqualLimits)
 				{
 					// Prevent large angular corrections
-					float C = Box2DXMath.Clamp(angle, -Settings.MaxAngularCorrection, Settings.MaxAngularCorrection);
+					float C = Box2DNet.Common.Math.Clamp(angle, -Settings.MaxAngularCorrection, Settings.MaxAngularCorrection);
 					limitImpulse = -_motorMass * C;
-					angularError = Box2DXMath.Abs(C);
+					angularError = Box2DNetMath.Abs(C);
 				}
 				else if (_limitState == LimitState.AtLowerLimit)
 				{
@@ -558,7 +558,7 @@ namespace Box2DNet.Dynamics
 					angularError = -C;
 
 					// Prevent large angular corrections and allow some slop.
-					C = Box2DXMath.Clamp(C + Settings.AngularSlop, -Settings.MaxAngularCorrection, 0.0f);
+					C = Box2DNet.Common.Math.Clamp(C + Settings.AngularSlop, -Settings.MaxAngularCorrection, 0.0f);
 					limitImpulse = -_motorMass * C;
 				}
 				else if (_limitState == LimitState.AtUpperLimit)
@@ -567,7 +567,7 @@ namespace Box2DNet.Dynamics
 					angularError = C;
 
 					// Prevent large angular corrections and allow some slop.
-					C = Box2DXMath.Clamp(C - Settings.AngularSlop, 0.0f, Settings.MaxAngularCorrection);
+					C = Box2DNet.Common.Math.Clamp(C - Settings.AngularSlop, 0.0f, Settings.MaxAngularCorrection);
 					limitImpulse = -_motorMass * C;
 				}
 
@@ -580,10 +580,10 @@ namespace Box2DNet.Dynamics
 
 			// Solve point-to-point constraint.
 			{
-				Vec2 r1 = Box2DXMath.Mul(b1.GetXForm().R, _localAnchor1 - b1.GetLocalCenter());
-				Vec2 r2 = Box2DXMath.Mul(b2.GetXForm().R, _localAnchor2 - b2.GetLocalCenter());
+				Vector2 r1 = b1.GetTransform().TransformDirection(_localAnchor1 - b1.GetLocalCenter());
+				Vector2 r2 = b2.GetTransform().TransformDirection(_localAnchor2 - b2.GetLocalCenter());
 
-				Vec2 C = b2._sweep.C + r2 - b1._sweep.C - r1;
+				Vector2 C = b2._sweep.C + r2 - b1._sweep.C - r1;
 				positionError = C.Length();
 
 				float invMass1 = b1._invMass, invMass2 = b2._invMass;
@@ -594,11 +594,11 @@ namespace Box2DNet.Dynamics
 				if (C.LengthSquared() > k_allowedStretch * k_allowedStretch)
 				{
 					// Use a particle solution (no rotation).
-					Vec2 u = C; u.Normalize();
+					Vector2 u = C; u.Normalize();
 					float k = invMass1 + invMass2;
 					Box2DNetDebug.Assert(k > Settings.FLT_EPSILON);
 					float m = 1.0f / k;
-					Vec2 impulse = m * (-C);
+					Vector2 impulse = m * (-C);
 					float k_beta = 0.5f;
 					b1._sweep.C -= k_beta * invMass1 * impulse;
 					b2._sweep.C += k_beta * invMass2 * impulse;
@@ -619,13 +619,13 @@ namespace Box2DNet.Dynamics
 				K3.Col1.Y = -invI2 * r2.X * r2.Y; K3.Col2.Y = invI2 * r2.X * r2.X;
 
 				Mat22 K = K1 + K2 + K3;
-				Vec2 impulse_ = K.Solve(-C);
+				Vector2 impulse_ = K.Solve(-C);
 
 				b1._sweep.C -= b1._invMass * impulse_;
-				b1._sweep.A -= b1._invI * Vec2.Cross(r1, impulse_);
+				b1._sweep.A -= b1._invI * r1.Cross(impulse_);
 
 				b2._sweep.C += b2._invMass * impulse_;
-				b2._sweep.A += b2._invI * Vec2.Cross(r2, impulse_);
+				b2._sweep.A += b2._invI * r2.Cross(impulse_);
 
 				b1.SynchronizeTransform();
 				b2.SynchronizeTransform();

@@ -1,5 +1,5 @@
 ﻿/*
-  Box2DX Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
+  Box2DNet Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
   Box2D original C++ version Copyright (c) 2006-2009 Erin Catto http://www.gphysics.com
 
   This software is provided 'as-is', without any express or implied
@@ -19,9 +19,11 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-using Box2DNet;
 using Box2DNet.Common;
-
+ 
+using System.Numerics;
+using Transform = Box2DNet.Common.Transform;
+using System.Numerics;
 namespace Box2DNet.Collision
 {
 	public partial class Collision
@@ -29,27 +31,27 @@ namespace Box2DNet.Collision
 		/// <summary>
 		/// Find the separation between poly1 and poly2 for a give edge normal on poly1.
 		/// </summary>
-		public static float EdgeSeparation(PolygonShape poly1, XForm xf1, int edge1, PolygonShape poly2, XForm xf2)
+		public static float EdgeSeparation(PolygonShape poly1, Transform xf1, int edge1, PolygonShape poly2, Transform xf2)
 		{
 			int count1 = poly1._vertexCount;
-			Vec2[] vertices1 = poly1._vertices;
-			Vec2[] normals1 = poly1._normals;
+			Vector2[] vertices1 = poly1._vertices;
+			Vector2[] normals1 = poly1._normals;
 
 			int count2 = poly2._vertexCount;
-			Vec2[] vertices2 = poly2._vertices;
+			Vector2[] vertices2 = poly2._vertices;
 
 			Box2DNetDebug.Assert(0 <= edge1 && edge1 < count1);
 
 			// Convert normal from poly1's frame into poly2's frame.
-			Vec2 normal1World = Common.Math.Mul(xf1.R, normals1[edge1]);
-			Vec2 normal1 = Common.Math.MulT(xf2.R, normal1World);
+			Vector2 normal1World = xf1.TransformDirection(normals1[edge1]);
+			Vector2 normal1 = xf2.InverseTransformDirection(normal1World);
 
 			// Find support vertex on poly2 for -normal.
 			int index = 0;
 			float minDot = Common.Settings.FLT_MAX;
 			for (int i = 0; i < count2; ++i)
 			{
-				float dot = Vec2.Dot(vertices2[i], normal1);
+				float dot = Vector2.Dot(vertices2[i], normal1);
 				if (dot < minDot)
 				{
 					minDot = dot;
@@ -57,30 +59,30 @@ namespace Box2DNet.Collision
 				}
 			}
 
-			Vec2 v1 = Common.Math.Mul(xf1, vertices1[edge1]);
-			Vec2 v2 = Common.Math.Mul(xf2, vertices2[index]);
-			float separation = Vec2.Dot(v2 - v1, normal1World);
+			Vector2 v1 = xf1.TransformPoint(vertices1[edge1]);
+			Vector2 v2 = xf2.TransformPoint(vertices2[index]); 
+			float separation = Vector2.Dot(v2 - v1, normal1World);
 			return separation;
 		}
 
 		/// <summary>
 		/// Find the max separation between poly1 and poly2 using edge normals from poly1.
 		/// </summary>
-		public static float FindMaxSeparation(ref int edgeIndex, PolygonShape poly1, XForm xf1, PolygonShape poly2, XForm xf2)
+		public static float FindMaxSeparation(ref int edgeIndex, PolygonShape poly1, Transform xf1, PolygonShape poly2, Transform xf2)
 		{
 			int count1 = poly1._vertexCount;
-			Vec2[] normals1 = poly1._normals;
+			Vector2[] normals1 = poly1._normals;
 
 			// Vector pointing from the centroid of poly1 to the centroid of poly2.
-			Vec2 d = Common.Math.Mul(xf2, poly2._centroid) - Common.Math.Mul(xf1, poly1._centroid);
-			Vec2 dLocal1 = Common.Math.MulT(xf1.R, d);
+			Vector2 d = xf2.TransformPoint(poly2._centroid) - xf1.TransformPoint(poly2._centroid);
+			Vector2 dLocal1 = xf1.InverseTransformDirection(d);
 
 			// Find edge normal on poly1 that has the largest projection onto d.
 			int edge = 0;
 			float maxDot = -Common.Settings.FLT_MAX;
 			for (int i = 0; i < count1; ++i)
 			{
-				float dot = Vec2.Dot(normals1[i], dLocal1);
+				float dot = Vector2.Dot(normals1[i], dLocal1);
 				if (dot > maxDot)
 				{
 					maxDot = dot;
@@ -146,27 +148,26 @@ namespace Box2DNet.Collision
 			return bestSeparation;
 		}
 
-		public static void FindIncidentEdge(out ClipVertex[] c,
-			PolygonShape poly1, XForm xf1, int edge1, PolygonShape poly2, XForm xf2)
+		public static void FindIncidentEdge(out ClipVertex[] c, PolygonShape poly1, Transform xf1, int edge1, PolygonShape poly2, Transform xf2)
 		{
 			int count1 = poly1._vertexCount;
-			Vec2[] normals1 = poly1._normals;
+			Vector2[] normals1 = poly1._normals;
 
 			int count2 = poly2._vertexCount;
-			Vec2[] vertices2 = poly2._vertices;
-			Vec2[] normals2 = poly2._normals;
+			Vector2[] vertices2 = poly2._vertices;
+			Vector2[] normals2 = poly2._normals;
 
 			Box2DNetDebug.Assert(0 <= edge1 && edge1 < count1);
 
 			// Get the normal of the reference edge in poly2's frame.
-			Vec2 normal1 = Common.Math.MulT(xf2.R, Common.Math.Mul(xf1.R, normals1[edge1]));
+			Vector2 normal1 = xf2.InverseTransformDirection( xf1.TransformDirection(normals1[edge1]) );
 
 			// Find the incident edge on poly2.
 			int index = 0;
 			float minDot = Settings.FLT_MAX;
 			for (int i = 0; i < count2; ++i)
 			{
-				float dot = Vec2.Dot(normal1, normals2[i]);
+				float dot = Vector2.Dot(normal1, normals2[i]);
 				if (dot < minDot)
 				{
 					minDot = dot;
@@ -198,7 +199,7 @@ namespace Box2DNet.Collision
 		// Clip
 		// The normal points from 1 to 2
 		public static void CollidePolygons(ref Manifold manifold,
-			PolygonShape polyA, XForm xfA, PolygonShape polyB, XForm xfB)
+			PolygonShape polyA, Transform xfA, PolygonShape polyB, Transform xfB)
 		{
 			manifold.PointCount = 0;
 			float totalRadius = polyA._radius + polyB._radius;
@@ -215,7 +216,7 @@ namespace Box2DNet.Collision
 
 			PolygonShape poly1;	// reference poly
 			PolygonShape poly2;	// incident poly
-			XForm xf1, xf2;
+			Transform xf1, xf2;
 			int edge1;		// reference edge
 			byte flip;
 			const float k_relativeTol = 0.98f;
@@ -246,34 +247,35 @@ namespace Box2DNet.Collision
 			Collision.FindIncidentEdge(out incidentEdge, poly1, xf1, edge1, poly2, xf2);
 
 			int count1 = poly1._vertexCount;
-			Vec2[] vertices1 = poly1._vertices;
+			Vector2[] vertices1 = poly1._vertices;
 
-			Vec2 v11 = vertices1[edge1];
-			Vec2 v12 = edge1 + 1 < count1 ? vertices1[edge1 + 1] : vertices1[0];
+			Vector2 v11 = vertices1[edge1];
+			Vector2 v12 = edge1 + 1 < count1 ? vertices1[edge1 + 1] : vertices1[0];
 
-			Vec2 dv = v12 - v11;
+			Vector2 dv = v12 - v11;
 
-			Vec2 localNormal = Vec2.Cross(dv, 1.0f);
+			Vector2 localNormal = dv.CrossScalarPostMultiply(1.0f);
 			localNormal.Normalize();
-			Vec2 planePoint = 0.5f * (v11 + v12);
+			Vector2 planePoint = 0.5f * (v11 + v12);
 
-			Vec2 sideNormal = Common.Math.Mul(xf1.R, v12 - v11);
+			Vector2 sideNormal = xf1.TransformDirection(v12 - v11);
 			sideNormal.Normalize();
-			Vec2 frontNormal = Vec2.Cross(sideNormal, 1.0f);
+			Vector2 frontNormal = sideNormal.CrossScalarPostMultiply(1.0f);
 
 			v11 = Common.Math.Mul(xf1, v11);
 			v12 = Common.Math.Mul(xf1, v12);
 
-			float frontOffset = Vec2.Dot(frontNormal, v11);
-			float sideOffset1 = -Vec2.Dot(sideNormal, v11);
-			float sideOffset2 = Vec2.Dot(sideNormal, v12);
+			float frontOffset = Vector2.Dot(frontNormal, v11);
+			float sideOffset1 = -Vector2.Dot(sideNormal, v11);
+			float sideOffset2 = Vector2.Dot(sideNormal, v12);
 
 			// Clip incident edge against extruded edge1 side edges.
 			ClipVertex[] clipPoints1;
 			ClipVertex[] clipPoints2;
+			int np;
 
-		    // Clip to box side 1
-			var np = Collision.ClipSegmentToLine(out clipPoints1, incidentEdge, -sideNormal, sideOffset1);
+			// Clip to box side 1
+			np = Collision.ClipSegmentToLine(out clipPoints1, incidentEdge, -sideNormal, sideOffset1);
 
 			if (np < 2)
 				return;
@@ -291,12 +293,12 @@ namespace Box2DNet.Collision
 			int pointCount = 0;
 			for (int i = 0; i < Settings.MaxManifoldPoints; ++i)
 			{
-				float separation = Vec2.Dot(frontNormal, clipPoints2[i].V) - frontOffset;
+				float separation = Vector2.Dot(frontNormal, clipPoints2[i].V) - frontOffset;
 
 				if (separation <= totalRadius)
 				{
 					ManifoldPoint cp = manifold.Points[pointCount];
-					cp.LocalPoint = Common.Math.MulT(xf2, clipPoints2[i].V);
+					cp.LocalPoint = xf2.InverseTransformPoint(clipPoints2[i].V);
 					cp.ID = clipPoints2[i].ID;
 					cp.ID.Features.Flip = flip;
 					++pointCount;

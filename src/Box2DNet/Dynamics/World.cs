@@ -1,5 +1,5 @@
-﻿/*
-  Box2DX Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
+/*
+  Box2DNet Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
   Box2D original C++ version Copyright (c) 2006-2009 Erin Catto http://www.gphysics.com
 
   This software is provided 'as-is', without any express or implied
@@ -19,11 +19,13 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-using System;
- 
-using Box2DNet.Collision;
+using System; using System.Numerics;
+using System.Numerics;
 using Box2DNet.Common;
-using Box2DNet.Dynamics;
+using Box2DNet.Collision;
+ 
+
+using Transform = Box2DNet.Common.Transform;
 
 namespace Box2DNet.Dynamics
 {
@@ -50,9 +52,9 @@ namespace Box2DNet.Dynamics
 
 		private Body _bodyList;
 		private Joint _jointList;
-		private Box2DNet.Dynamics.Controllers.Controller _controllerList;
+		private Controllers.Controller _controllerList;
 
-		private Vec2 _raycastNormal;
+		private Vector2 _raycastNormal;
 		private object _raycastUserData;
 		private Segment _raycastSegment;
 		private bool _raycastSolidShape;
@@ -65,21 +67,20 @@ namespace Box2DNet.Dynamics
 		private int _jointCount;
 		private int _controllerCount;
 
-		private Vec2 _gravity;
+		private Vector2 _gravity;
 		/// <summary>
 		/// Get\Set global gravity vector.
 		/// </summary>
-		public Vec2 Gravity { get { return _gravity; } set { _gravity = value; } }
+		public Vector2 Gravity { get { return _gravity; } set { _gravity = value; } }
 
-		private readonly bool _allowSleep;
+		private bool _allowSleep;
 
-		private readonly Body _groundBody;
+		private Body _groundBody;
 
 		private DestructionListener _destructionListener;
 		private BoundaryListener _boundaryListener;
 		internal ContactFilter _contactFilter;
-		internal IContactListener _contactListener;
-        internal ContactListener _contactListener2;
+		internal ContactListener _contactListener;
 		private DebugDraw _debugDraw;
 
 		// This is used to compute the time step ratio to
@@ -98,7 +99,7 @@ namespace Box2DNet.Dynamics
 		/// <param name="worldAABB">A bounding box that completely encompasses all your shapes.</param>
 		/// <param name="gravity">The world gravity vector.</param>
 		/// <param name="doSleep">Improve performance by not simulating inactive bodies.</param>
-		public World(AABB worldAABB, Vec2 gravity, bool doSleep)
+		public World(AABB worldAABB, Vector2 gravity, bool doSleep)
 		{
 			_destructionListener = null;
 			_boundaryListener = null;
@@ -124,8 +125,9 @@ namespace Box2DNet.Dynamics
 
 			_inv_dt0 = 0.0f;
 
-		    _contactManager = new ContactManager {_world = this};
-		    _broadPhase = new BroadPhase(worldAABB, _contactManager);
+			_contactManager = new ContactManager();
+			_contactManager._world = this;
+			_broadPhase = new BroadPhase(worldAABB, _contactManager);
 
 			BodyDef bd = new BodyDef();
 			_groundBody = CreateBody(bd);
@@ -174,18 +176,11 @@ namespace Box2DNet.Dynamics
 		/// Register a contact event listener
 		/// </summary>
 		/// <param name="listener"></param>
-		public void SetContactListener(IContactListener listener)
+		public void SetContactListener(ContactListener listener)
 		{
 			_contactListener = listener;
 		}
-        /// <summary>
-        /// Register a contact event listener
-        /// </summary>
-        /// <param name="listener"></param>
-        public void SetContactListener(ContactListener listener)
-        {
-            _contactListener2 = listener;
-        }
+
 		/// <summary>
 		/// Register a routine for debug drawing. The debug draw functions are called
 		/// inside the World.Step method, so make sure your renderer is ready to
@@ -212,14 +207,12 @@ namespace Box2DNet.Dynamics
 				return null;
 			}
 
-		    Body b = new Body(def, this)
-		    {
-		        _prev = null,
-		        _next = _bodyList
-		    };
+			Body b = new Body(def, this);
 
-		    // Add to world doubly linked list.
-		    if (_bodyList != null)
+			// Add to world doubly linked list.
+			b._prev = null;
+			b._next = _bodyList;
+			if (_bodyList != null)
 			{
 				_bodyList._prev = b;
 			}
@@ -263,10 +256,10 @@ namespace Box2DNet.Dynamics
 			}
 
 			//Detach controllers attached to this body
-			Box2DNet.Dynamics.Controllers.ControllerEdge ce = b._controllerList;
+			Controllers.ControllerEdge ce = b._controllerList;
 			while (ce != null)
 			{
-				Box2DNet.Dynamics.Controllers.ControllerEdge ce0 = ce;
+				Controllers.ControllerEdge ce0 = ce;
 				ce = ce.nextController;
 
 				ce0.controller.RemoveBody(b);
@@ -357,7 +350,7 @@ namespace Box2DNet.Dynamics
 				Body b = def.Body1._fixtureCount < def.Body2._fixtureCount ? def.Body1 : def.Body2;
 				for (Fixture f = b._fixtureList; f != null; f = f.Next)
 				{
-					f.RefilterProxy(_broadPhase, b.GetXForm());
+					f.RefilterProxy(_broadPhase, b.GetTransform());
 				}
 			}
 
@@ -449,12 +442,12 @@ namespace Box2DNet.Dynamics
 				Body b = body1._fixtureCount < body2._fixtureCount ? body1 : body2;
 				for (Fixture f = b._fixtureList; f != null; f = f.Next)
 				{
-					f.RefilterProxy(_broadPhase, b.GetXForm());
+					f.RefilterProxy(_broadPhase, b.GetTransform());
 				}
 			}
 		}
 
-		public Box2DNet.Dynamics.Controllers.Controller AddController(Box2DNet.Dynamics.Controllers.Controller def)
+		public Controllers.Controller AddController(Controllers.Controller def)
 		{
 			def._next = _controllerList;
 			def._prev = null;
@@ -468,7 +461,7 @@ namespace Box2DNet.Dynamics
 			return def;
 		}
 
-		public void RemoveController(Box2DNet.Dynamics.Controllers.Controller controller)
+		public void RemoveController(Controllers.Controller controller)
 		{
 			Box2DNetDebug.Assert(_controllerCount > 0);
 			if (controller._next != null)
@@ -510,7 +503,7 @@ namespace Box2DNet.Dynamics
 			return _jointList;
 		}
 
-		public Box2DNet.Dynamics.Controllers.Controller GetControllerList()
+		public Controllers.Controller GetControllerList()
 		{
 			return _controllerList;
 		}
@@ -526,7 +519,7 @@ namespace Box2DNet.Dynamics
 		public void Refilter(Fixture fixture)
 		{
 			Box2DNetDebug.Assert(_lock == false);
-			fixture.RefilterProxy(_broadPhase, fixture.Body.GetXForm());
+			fixture.RefilterProxy(_broadPhase, fixture.Body.GetTransform());
 		}
 
 		/// <summary>
@@ -690,12 +683,12 @@ namespace Box2DNet.Dynamics
 		/// <param name="solidShapes">Determines if shapes that the ray starts in are counted as hits.</param>
 		/// <param name="userData"></param>
 		/// <returns>Returns the colliding shape shape, or null if not found.</returns>
-		public Fixture RaycastOne(Segment segment, out float lambda, out Vec2 normal, bool solidShapes, object userData)
+		public Fixture RaycastOne(Segment segment, out float lambda, out Vector2 normal, bool solidShapes, object userData)
 		{
 			int maxCount = 1;
 			Fixture[] fixture;
 			lambda = 0.0f;
-			normal = new Vec2();
+			normal = new Vector2();
 
 			int count = Raycast(segment, out fixture, maxCount, solidShapes, userData);
 
@@ -715,7 +708,7 @@ namespace Box2DNet.Dynamics
 		private void Solve(TimeStep step)
 		{
 			// Step all controlls
-			for (Box2DNet.Dynamics.Controllers.Controller controller = _controllerList; controller != null; controller = controller._next)
+			for (Controllers.Controller controller = _controllerList; controller != null; controller = controller._next)
 			{
 				controller.Step(step);
 			}
@@ -907,12 +900,11 @@ namespace Box2DNet.Dynamics
 				c._flags &= ~(Contact.CollisionFlags.Toi | Contact.CollisionFlags.Island);
 			}
 
-#if B2_TOI_JOINTS
 			for (Joint j = _jointList; j != null; j = j._next)
 			{
 				j._islandFlag = false;
 			}
-#endif
+
 			// Find TOI events and solve them.
 			for (; ; )
 			{
@@ -938,8 +930,10 @@ namespace Box2DNet.Dynamics
 					else
 					{
 						// Compute the TOI for this contact.
-                        Body b1 = c.FixtureA.Body;
-                        Body b2 = c.FixtureB.Body;
+						Fixture s1 = c.FixtureA;
+						Fixture s2 = c.FixtureB;
+						Body b1 = s1.Body;
+						Body b2 = s2.Body;
 
 						if ((b1.IsStatic() || b1.IsSleeping()) && (b2.IsStatic() || b2.IsSleeping()))
 						{
@@ -963,7 +957,7 @@ namespace Box2DNet.Dynamics
 						Box2DNetDebug.Assert(t0 < 1.0f);
 
 						// Compute the time of impact.
-						toi = c.ComputeToi(b1._sweep, b2._sweep);
+						toi = c.ComputeTOI(b1._sweep, b2._sweep);
 						//b2TimeOfImpact(c->m_fixtureA->GetShape(), b1->m_sweep, c->m_fixtureB->GetShape(), b2->m_sweep);
 
 						Box2DNetDebug.Assert(0.0f <= toi && toi <= 1.0f);
@@ -972,7 +966,7 @@ namespace Box2DNet.Dynamics
 						if (0.0f < toi && toi < 1.0f)
 						{
 							// Interpolate on the actual range.
-							toi = Box2DNet.Common.Math.Min((1.0f - toi) * t0 + toi, 1.0f);
+							toi = Common.Math.Min((1.0f - toi) * t0 + toi, 1.0f);
 						}
 
 
@@ -980,7 +974,7 @@ namespace Box2DNet.Dynamics
 						c._flags |= Contact.CollisionFlags.Toi;
 					}
 
-					if (Settings.FLT_EPSILON < toi && toi < minTOI)
+					if (Box2DNet.Common.Math.Epsilon < toi && toi < minTOI)
 					{
 						// This is the minimum TOI found so far.
 						minContact = c;
@@ -988,7 +982,7 @@ namespace Box2DNet.Dynamics
 					}
 				}
 
-				if (minContact == null || 1.0f - 100.0f * Settings.FLT_EPSILON < minTOI)
+				if (minContact == null || 1.0f - 100.0f * Box2DNet.Common.Math.Epsilon < minTOI)
 				{
 					// No more TOI events. Done!
 					break;
@@ -1057,20 +1051,17 @@ namespace Box2DNet.Dynamics
 						}
 
 						// Has this contact already been added to an island? Skip slow or non-solid contacts.
-						if ((cEdge.Contact._flags & (Contact.CollisionFlags.Island | Contact.CollisionFlags.Slow | Contact.CollisionFlags.NonSolid)) != 0)
+						if ((int)(cEdge.Contact._flags & (Contact.CollisionFlags.Island | Contact.CollisionFlags.Slow | Contact.CollisionFlags.NonSolid)) != 0)
 						{
 							continue;
 						}
 
 						// Is this contact touching? For performance we are not updating this contact.
-                        //if (cEdge.Contact.Manifold.PointCount == 0)
-                        //{
-                        //    continue;
-                        //}
-                        if ((cEdge.Contact._flags & Contact.CollisionFlags.Touch) == 0)
-                        {
-                            continue;
-                        }
+						if ((cEdge.Contact._flags & Contact.CollisionFlags.Touch) == 0)
+						{
+							continue;
+						}
+
 						island.Add(cEdge.Contact);
 						cEdge.Contact._flags |= Contact.CollisionFlags.Island;
 
@@ -1078,7 +1069,7 @@ namespace Box2DNet.Dynamics
 						Body other = cEdge.Other;
 
 						// Was the other body already added to this island?
-						if ((other._flags & Body.BodyFlags.Island) != 0)
+						if ((int)(other._flags & Body.BodyFlags.Island) == 1)
 						{
 							continue;
 						}
@@ -1091,10 +1082,11 @@ namespace Box2DNet.Dynamics
 						}
 
 						//Box2DNetDebug.Assert(queueStart + queueSize < queueCapacity);
-						queue[queueStart + queueSize++] = other;
+						queue[queueStart + queueSize] = other;
+						++queueSize;
 						other._flags |= Body.BodyFlags.Island;
 					}
-#if B2_TOI_JOINTS
+
 					for (JointEdge jEdge = b._jointList; jEdge != null; jEdge = jEdge.Next)
 					{
 						if (island._jointCount == island._jointCapacity)
@@ -1124,12 +1116,11 @@ namespace Box2DNet.Dynamics
 							other.WakeUp();
 						}
 
-						Box2DNetDebug.Assert(queueStart + queueSize < queueCapacity);
+						//Box2DNetDebug.Assert(queueStart + queueSize < queueCapacity);
 						queue[queueStart + queueSize] = other;
 						++queueSize;
 						other._flags |= Body.BodyFlags.Island;
 					}
-#endif
 				}
 
 				TimeStep subStep;
@@ -1204,12 +1195,12 @@ namespace Box2DNet.Dynamics
 		{
 			Body b1 = joint.GetBody1();
 			Body b2 = joint.GetBody2();
-			XForm xf1 = b1.GetXForm();
-			XForm xf2 = b2.GetXForm();
-			Vec2 x1 = xf1.Position;
-			Vec2 x2 = xf2.Position;
-			Vec2 p1 = joint.Anchor1;
-			Vec2 p2 = joint.Anchor2;
+			Transform xf1 = b1.GetTransform();
+			Transform xf2 = b2.GetTransform();
+			Vector2 x1 = xf1.position;
+			Vector2 x2 = xf2.position;
+			Vector2 p1 = joint.Anchor1;
+			Vector2 p2 = joint.Anchor2;
 
 			Color color = new Color(0.5f, 0.8f, 0.8f);
 
@@ -1222,8 +1213,8 @@ namespace Box2DNet.Dynamics
 				case JointType.PulleyJoint:
 					{
 						PulleyJoint pulley = (PulleyJoint)joint;
-						Vec2 s1 = pulley.GroundAnchor1;
-						Vec2 s2 = pulley.GroundAnchor2;
+						Vector2 s1 = pulley.GroundAnchor1;
+						Vector2 s2 = pulley.GroundAnchor2;
 						_debugDraw.DrawSegment(s1, p1, color);
 						_debugDraw.DrawSegment(s2, p2, color);
 						_debugDraw.DrawSegment(s1, s2, color);
@@ -1242,7 +1233,7 @@ namespace Box2DNet.Dynamics
 			}
 		}
 
-		private void DrawFixture(Fixture fixture, XForm xf, Color color, bool core)
+		private void DrawFixture(Fixture fixture, Transform xf, Color color, bool core)
 		{
 #warning "the core argument is not used, the coreColor variable is also not used"
 			Color coreColor = new Color(0.9f, 0.6f, 0.6f);
@@ -1253,11 +1244,11 @@ namespace Box2DNet.Dynamics
 					{
 						CircleShape circle = (CircleShape)fixture.Shape;
 
-						Vec2 center = Box2DNet.Common.Math.Mul(xf, circle._position);
+						Vector2 center = xf.TransformPoint(circle._position);
 						float radius = circle._radius;
-						Vec2 axis = xf.R.Col1;
+						// [CHRISK] FIXME Vector2 axis = xf.R.Col1;
 
-						_debugDraw.DrawSolidCircle(center, radius, axis, color);
+						//_debugDraw.DrawSolidCircle(center, radius, axis, color);
 					}
 					break;
 
@@ -1265,14 +1256,14 @@ namespace Box2DNet.Dynamics
 					{
 						PolygonShape poly = (PolygonShape)fixture.Shape;
 						int vertexCount = poly._vertexCount;
-						Vec2[] localVertices = poly._vertices;
+						Vector2[] localVertices = poly._vertices;
 
 						Box2DNetDebug.Assert(vertexCount <= Settings.MaxPolygonVertices);
-						Vec2[] vertices = new Vec2[Settings.MaxPolygonVertices];
+						Vector2[] vertices = new Vector2[Settings.MaxPolygonVertices];
 
 						for (int i = 0; i < vertexCount; ++i)
 						{
-							vertices[i] = Box2DNet.Common.Math.Mul(xf, localVertices[i]);
+							vertices[i] = xf.TransformPoint(localVertices[i]);
 						}
 
 						_debugDraw.DrawSolidPolygon(vertices, vertexCount, color);
@@ -1283,7 +1274,7 @@ namespace Box2DNet.Dynamics
 					{
 						EdgeShape edge = (EdgeShape)fixture.Shape;
 
-						_debugDraw.DrawSegment(Box2DNet.Common.Math.Mul(xf, edge.Vertex1), Box2DNet.Common.Math.Mul(xf, edge.Vertex2), color);
+						_debugDraw.DrawSegment(xf.TransformPoint(edge.Vertex1), xf.TransformPoint(edge.Vertex2), color);
 					}
 					break;
 			}
@@ -1304,7 +1295,7 @@ namespace Box2DNet.Dynamics
 
 				for (Body b = _bodyList; b != null; b = b.GetNext())
 				{
-					XForm xf = b.GetXForm();
+					Transform xf = b.GetTransform();
 					for (Fixture f = b.GetFixtureList(); f != null; f = f.Next)
 					{
 						if (b.IsStatic())
@@ -1336,7 +1327,7 @@ namespace Box2DNet.Dynamics
 
 			if ((flags & DebugDraw.DrawFlags.Controller) != 0)
 			{
-				for (Box2DNet.Dynamics.Controllers.Controller c = _controllerList; c != null; c = c.GetNext())
+				for (Controllers.Controller c = _controllerList; c != null; c = c.GetNext())
 				{
 					c.Draw(_debugDraw);
 				}
@@ -1345,8 +1336,7 @@ namespace Box2DNet.Dynamics
 			if ((flags & DebugDraw.DrawFlags.Pair) != 0)
 			{
 				BroadPhase bp = _broadPhase;
-				Vec2 invQ = new Vec2();
-				invQ.Set(1.0f / bp._quantizationFactor.X, 1.0f / bp._quantizationFactor.Y);
+				Vector2 invQ = new Vector2(1.0f / bp._quantizationFactor.X, 1.0f / bp._quantizationFactor.Y);
 				Color color = new Color(0.9f, 0.9f, 0.3f);
 
 				for (int i = 0; i < PairManager.TableCapacity; ++i)
@@ -1368,8 +1358,8 @@ namespace Box2DNet.Dynamics
 						b2.UpperBound.X = bp._worldAABB.LowerBound.X + invQ.X * bp._bounds[0][p2.UpperBounds[0]].Value;
 						b2.UpperBound.Y = bp._worldAABB.LowerBound.Y + invQ.Y * bp._bounds[1][p2.UpperBounds[1]].Value;
 
-						Vec2 x1 = 0.5f * (b1.LowerBound + b1.UpperBound);
-						Vec2 x2 = 0.5f * (b2.LowerBound + b2.UpperBound);
+						Vector2 x1 = 0.5f * (b1.LowerBound + b1.UpperBound);
+						Vector2 x2 = 0.5f * (b2.LowerBound + b2.UpperBound);
 
 						_debugDraw.DrawSegment(x1, x2, color);
 
@@ -1381,11 +1371,10 @@ namespace Box2DNet.Dynamics
 			if ((flags & DebugDraw.DrawFlags.Aabb) != 0)
 			{
 				BroadPhase bp = _broadPhase;
-				Vec2 worldLower = bp._worldAABB.LowerBound;
-				Vec2 worldUpper = bp._worldAABB.UpperBound;
+				Vector2 worldLower = bp._worldAABB.LowerBound;
+				Vector2 worldUpper = bp._worldAABB.UpperBound;
 
-				Vec2 invQ = new Vec2();
-				invQ.Set(1.0f / bp._quantizationFactor.X, 1.0f / bp._quantizationFactor.Y);
+				Vector2 invQ = new Vector2(1.0f / bp._quantizationFactor.X, 1.0f / bp._quantizationFactor.Y);
 				Color color = new Color(0.9f, 0.3f, 0.9f);
 				for (int i = 0; i < Settings.MaxProxies; ++i)
 				{
@@ -1395,34 +1384,26 @@ namespace Box2DNet.Dynamics
 						continue;
 					}
 
-				    AABB b = new AABB
-				    {
-				        LowerBound =
-				        {
-				            X = worldLower.X + invQ.X*bp._bounds[0][p.LowerBounds[0]].Value,
-				            Y = worldLower.Y + invQ.Y*bp._bounds[1][p.LowerBounds[1]].Value
-				        },
-				        UpperBound =
-				        {
-				            X = worldLower.X + invQ.X*bp._bounds[0][p.UpperBounds[0]].Value,
-				            Y = worldLower.Y + invQ.Y*bp._bounds[1][p.UpperBounds[1]].Value
-				        }
-				    };
+					AABB b = new AABB();
+					b.LowerBound.X = worldLower.X + invQ.X * bp._bounds[0][p.LowerBounds[0]].Value;
+					b.LowerBound.Y = worldLower.Y + invQ.Y * bp._bounds[1][p.LowerBounds[1]].Value;
+					b.UpperBound.X = worldLower.X + invQ.X * bp._bounds[0][p.UpperBounds[0]].Value;
+					b.UpperBound.Y = worldLower.Y + invQ.Y * bp._bounds[1][p.UpperBounds[1]].Value;
 
-				    Vec2[] vs1 = new Vec2[4];
-					vs1[0].Set(b.LowerBound.X, b.LowerBound.Y);
-					vs1[1].Set(b.UpperBound.X, b.LowerBound.Y);
-					vs1[2].Set(b.UpperBound.X, b.UpperBound.Y);
-					vs1[3].Set(b.LowerBound.X, b.UpperBound.Y);
+					Vector2[] vs1 = new Vector2[4];
+					vs1[0] = new Vector2(b.LowerBound.X, b.LowerBound.Y);
+					vs1[1] = new Vector2(b.UpperBound.X, b.LowerBound.Y);
+					vs1[2] = new Vector2(b.UpperBound.X, b.UpperBound.Y);
+					vs1[3] = new Vector2(b.LowerBound.X, b.UpperBound.Y);
 
 					_debugDraw.DrawPolygon(vs1, 4, color);
 				}
 
-				Vec2[] vs = new Vec2[4];
-				vs[0].Set(worldLower.X, worldLower.Y);
-				vs[1].Set(worldUpper.X, worldLower.Y);
-				vs[2].Set(worldUpper.X, worldUpper.Y);
-				vs[3].Set(worldLower.X, worldUpper.Y);
+				Vector2[] vs = new Vector2[4];
+				vs[0] = new Vector2(worldLower.X, worldLower.Y);
+				vs[1] = new Vector2(worldUpper.X, worldLower.Y);
+				vs[2] = new Vector2(worldUpper.X, worldUpper.Y);
+				vs[3] = new Vector2(worldLower.X, worldUpper.Y);
 				_debugDraw.DrawPolygon(vs, 4, new Color(0.3f, 0.9f, 0.9f));
 			}
 
@@ -1430,9 +1411,9 @@ namespace Box2DNet.Dynamics
 			{
 				for (Body b = _bodyList; b != null; b = b.GetNext())
 				{
-					XForm xf = b.GetXForm();
-					xf.Position = b.GetWorldCenter();
-					_debugDraw.DrawXForm(xf);
+					Transform xf = b.GetTransform();
+					xf.position = b.GetWorldCenter();
+					_debugDraw.DrawTransform(xf);
 				}
 			}
 		}

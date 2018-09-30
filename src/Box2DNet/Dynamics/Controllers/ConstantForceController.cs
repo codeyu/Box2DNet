@@ -16,9 +16,9 @@
 * 3. This notice may not be removed or altered from any source distribution.
 */
 
-using Box2DNet.Dynamics;
 using Box2DNet.Common;
-
+ 
+using System.Numerics;
 namespace Box2DNet.Dynamics.Controllers
 {
 
@@ -28,7 +28,7 @@ namespace Box2DNet.Dynamics.Controllers
     public class ConstantForceControllerDef
     {
         /// The force to apply
-        public Vec2 F;
+        public Vector2 F;
     }
 
     public class ConstantForceController : Controller
@@ -36,7 +36,7 @@ namespace Box2DNet.Dynamics.Controllers
         /// <summary>
         /// The force to apply
         /// </summary>
-        readonly Vec2 F;
+        Vector2 F;
 
         public ConstantForceController(ConstantForceControllerDef def)
         {

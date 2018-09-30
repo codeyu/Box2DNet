@@ -1,5 +1,5 @@
 ﻿/*
-  Box2DX Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
+  Box2DNet Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
   Box2D original C++ version Copyright (c) 2006-2009 Erin Catto http://www.gphysics.com
 
   This software is provided 'as-is', without any express or implied
@@ -19,11 +19,13 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-using System;
-using Box2DNet;
-using Box2DNet.Dynamics;
+using System; using System.Numerics;
+
 using Box2DNet.Common;
 using Box2DNet.Collision;
+
+ 
+using Transform = Box2DNet.Common.Transform;
 
 namespace Box2DNet.Dynamics
 {
@@ -39,14 +41,13 @@ namespace Box2DNet.Dynamics
 		public BodyDef(byte init)
 		{
 			MassData = new MassData();
-			MassData.Center.SetZero();
+			MassData.Center = Vector2.Zero;
 			MassData.Mass = 0.0f;
 			MassData.I = 0.0f;
 			UserData = null;
-			Position = new Vec2();
-			Position.Set(0.0f, 0.0f);
+			Position = Vector2.Zero;
 			Angle = 0.0f;
-			LinearVelocity = new Vec2(0f, 0f);
+			LinearVelocity = Vector2.Zero; 
 			AngularVelocity = 0.0f;
 			LinearDamping = 0.0f;
 			AngularDamping = 0.0f;
@@ -72,7 +73,7 @@ namespace Box2DNet.Dynamics
 		/// The world position of the body. Avoid creating bodies at the origin
 		/// since this can lead to many overlapping shapes.
 		/// </summary>
-		public Vec2 Position;
+		public Vector2 Position;
 
 		/// <summary>
 		/// The world angle of the body in radians.
@@ -80,7 +81,7 @@ namespace Box2DNet.Dynamics
 		public float Angle;
 
 		/// The linear velocity of the body in world co-ordinates.
-		public Vec2 LinearVelocity;
+		public Vector2 LinearVelocity;
 
 		// The angular velocity of the body.
 		public float AngularVelocity;
@@ -152,14 +153,14 @@ namespace Box2DNet.Dynamics
 
 		internal int _islandIndex;
 
-		internal XForm _xf;		// the body origin transform
+		internal Transform _xf;		// the body origin Transform
 
 		internal Sweep _sweep;	// the swept motion for CCD
 
-		internal Vec2 _linearVelocity;
+		internal Vector2 _linearVelocity;
 		internal float _angularVelocity;
 
-		internal Vec2 _force;
+		internal Vector2 _force;
 		internal float _torque;
 
 		private World _world;
@@ -185,7 +186,11 @@ namespace Box2DNet.Dynamics
 		internal float _sleepTime;
 
 		private object _userData;
-
+		
+		public int bodyID;
+		
+		static int bodyCount = 0;
+		
 		internal Body(BodyDef bd, World world)
 		{
 			Box2DNetDebug.Assert(world._lock == false);
@@ -211,13 +216,14 @@ namespace Box2DNet.Dynamics
 
 			_world = world;
 
-			_xf.Position = bd.Position;
-			_xf.R.Set(bd.Angle);
+			_xf.position = bd.Position;
+			_xf.rotation = Box2DNet.Common.Math.AngleToRotation(bd.Angle);
+			//_xf.R = new Mat22(bd.Angle);
 
 			_sweep.LocalCenter = bd.MassData.Center;
 			_sweep.T0 = 1.0f;
 			_sweep.A0 = _sweep.A = bd.Angle;
-			_sweep.C0 = _sweep.C = Common.Math.Mul(_xf, _sweep.LocalCenter);
+			_sweep.C0 = _sweep.C = _xf.TransformPoint(_sweep.LocalCenter);
 
 			//_jointList = null;
 			//_contactList = null;
@@ -270,6 +276,8 @@ namespace Box2DNet.Dynamics
 
 			//_fixtureList = null;
 			//_fixtureCount = 0;
+			
+			bodyID = bodyCount++;
 		}
 
 		public void Dispose()
@@ -280,9 +288,10 @@ namespace Box2DNet.Dynamics
 
 		internal bool SynchronizeFixtures()
 		{
-			XForm xf1 = new XForm();
-			xf1.R.Set(_sweep.A0);
-			xf1.Position = _sweep.C0 - Common.Math.Mul(xf1.R, _sweep.LocalCenter);
+			Transform xf1 = new Transform();
+			xf1.rotation = Box2DNet.Common.Math.AngleToRotation(_sweep.A0);
+			//xf1.R = new Mat22(_sweep.A0);
+			xf1.position = _sweep.C0 - xf1.TransformDirection(_sweep.LocalCenter);
 
 			bool inRange = true;
 			for (Fixture f = _fixtureList; f != null; f = f.Next)
@@ -297,7 +306,7 @@ namespace Box2DNet.Dynamics
 			if (inRange == false)
 			{
 				_flags |= BodyFlags.Frozen;
-				_linearVelocity.SetZero();
+				_linearVelocity = Vector2.Zero;
 				_angularVelocity = 0.0f;
 
 				// Failure
@@ -429,7 +438,7 @@ namespace Box2DNet.Dynamics
 
 			// Move center of mass.
 			_sweep.LocalCenter = massData.Center;
-			_sweep.C0 = _sweep.C = Common.Math.Mul(_xf, _sweep.LocalCenter);
+			_sweep.C0 = _sweep.C = _xf.TransformPoint(_sweep.LocalCenter);
 
 			BodyType oldType = _type;
 			if (_invMass == 0.0f && _invI == 0.0f)
@@ -458,7 +467,7 @@ namespace Box2DNet.Dynamics
 		/// to call this again. Note that this changes the center of mass position.
 		/// </summary>
 		public void SetMassFromShapes()
-		{
+		{	
 			Box2DNetDebug.Assert(_world._lock == false);
 			if (_world._lock == true)
 			{
@@ -471,7 +480,7 @@ namespace Box2DNet.Dynamics
 			_I = 0.0f;
 			_invI = 0.0f;
 
-			Vec2 center = Vec2.Zero;
+			Vector2 center = Vector2.Zero;
 			for (Fixture f = _fixtureList; f != null; f = f.Next)
 			{
 				MassData massData;
@@ -491,7 +500,7 @@ namespace Box2DNet.Dynamics
 			if (_I > 0.0f && (_flags & BodyFlags.FixedRotation) == 0)
 			{
 				// Center the inertia about the center of mass.
-				_I -= _mass * Vec2.Dot(center, center);
+				_I -= _mass * Vector2.Dot(center, center);
 				Box2DNetDebug.Assert(_I > 0.0f);
 				_invI = 1.0f / _I;
 			}
@@ -503,7 +512,7 @@ namespace Box2DNet.Dynamics
 
 			// Move center of mass.
 			_sweep.LocalCenter = center;
-			_sweep.C0 = _sweep.C = Common.Math.Mul(_xf, _sweep.LocalCenter);
+			_sweep.C0 = _sweep.C = _xf.TransformPoint(_sweep.LocalCenter);
 
 			BodyType oldType = _type;
 			if (_invMass == 0.0f && _invI == 0.0f)
@@ -524,7 +533,13 @@ namespace Box2DNet.Dynamics
 				}
 			}
 		}
-
+		
+		public bool SetTransform(Vector2 position, float angle) 
+		{
+			return SetTransform(position, Box2DNet.Common.Math.AngleToRotation(angle));
+		}
+		
+#if USE_MATRIX_FOR_ROTATION
 		/// <summary>
 		/// Set the position of the body's origin and rotation (radians).
 		/// This breaks any contacts and wakes the other bodies.
@@ -534,7 +549,10 @@ namespace Box2DNet.Dynamics
 		/// <param name="angle">The new world rotation angle of the body in radians.</param>
 		/// <returns>Return false if the movement put a shape outside the world. In this case the
 		/// body is automatically frozen.</returns>
-		public bool SetXForm(Vec2 position, float angle)
+		public bool SetTransform(Vector2 position, Mat22 rotation)
+#else
+		public bool SetTransform(Vector2 position, Quaternion rotation)
+#endif
 		{
 			Box2DNetDebug.Assert(_world._lock == false);
 			if (_world._lock == true)
@@ -546,12 +564,17 @@ namespace Box2DNet.Dynamics
 			{
 				return false;
 			}
+			
+			_xf.rotation = rotation;
+			//_xf.R = rotation;
+			_xf.position = position;
 
-			_xf.R.Set(angle);
-			_xf.Position = position;
-
-			_sweep.C0 = _sweep.C = Common.Math.Mul(_xf, _sweep.LocalCenter);
-			_sweep.A0 = _sweep.A = angle;
+			_sweep.C0 = _sweep.C = _xf.TransformPoint(_sweep.LocalCenter);
+#if USE_MATRIX_FOR_ROTATION
+			_sweep.A0 = _sweep.A = rotation.GetAngle();
+#else
+			_sweep.A0 = _sweep.A = (rotation.Z * 180 / (float)System.Math.PI) * 0.0174532924f;
+#endif
 
 			bool freeze = false;
 			for (Fixture f = _fixtureList; f != null; f = f.Next)
@@ -568,7 +591,7 @@ namespace Box2DNet.Dynamics
 			if (freeze == true)
 			{
 				_flags |= BodyFlags.Frozen;
-				_linearVelocity.SetZero();
+				_linearVelocity = Vector2.Zero;
 				_angularVelocity = 0.0f;
 
 				// Failure
@@ -586,19 +609,19 @@ namespace Box2DNet.Dynamics
 		/// Note this is less efficient than the other overload - you should use that
 		/// if the angle is available.
 		/// </summary>
-		/// <param name="xf">The transform of position and angle to set the body to.</param>
+		/// <param name="xf">The Transform of position and angle to set the body to.</param>
 		/// <returns>False if the movement put a shape outside the world. In this case the
 		/// body is automatically frozen.</returns>
-		public bool SetXForm(XForm xf)
+		public bool SetTransform(Transform xf)
 		{
-			return SetXForm(xf.Position, xf.GetAngle());
+			return SetTransform(xf.position, xf.rotation);
 		}
 
 		/// <summary>
-		/// Get the body transform for the body's origin.
+		/// Get the body Transform for the body's origin.
 		/// </summary>
-		/// <returns>Return the world transform of the body's origin.</returns>
-		public XForm GetXForm()
+		/// <returns>Return the world Transform of the body's origin.</returns>
+		public Transform GetTransform()
 		{
 			return _xf;
 		}
@@ -607,27 +630,35 @@ namespace Box2DNet.Dynamics
 		/// Set the world body origin position.
 		/// </summary>
 		/// <param name="position">The new position of the body.</param>
-		public void SetPosition(Vec2 position)
+		public void SetPosition(Vector2 position)
 		{
-			SetXForm(position, GetAngle());
+#if USE_MATRIX_FOR_ROTATION
+			SetTransform(position, new Mat22(GetAngle()));
+#else
+			SetTransform(position, Box2DNet.Common.Math.AngleToRotation(GetAngle()));
+#endif
 		}
 
 		/// <summary>
 		/// Set the world body angle.
 		/// </summary>
-		/// <param name="angle">The new angle of the body.</param>
+		/// <param name="angle">The new angle of the body in radians</param>
 		public void SetAngle(float angle)
 		{
-			SetXForm(GetPosition(), angle);
+#if USE_MATRIX_FOR_ROTATION
+			SetTransform(GetPosition(), new Mat22(angle));
+#else
+			SetTransform(GetPosition(), Box2DNet.Common.Math.AngleToRotation(angle));
+#endif
 		}
 
 		/// <summary>
 		/// Get the world body origin position.
 		/// </summary>
 		/// <returns>Return the world position of the body's origin.</returns>
-		public Vec2 GetPosition()
+		public Vector2 GetPosition()
 		{
-			return _xf.Position;
+			return _xf.position;
 		}
 
 		/// <summary>
@@ -643,7 +674,7 @@ namespace Box2DNet.Dynamics
 		/// Get the world position of the center of mass.
 		/// </summary>
 		/// <returns></returns>
-		public Vec2 GetWorldCenter()
+		public Vector2 GetWorldCenter()
 		{
 			return _sweep.C;
 		}
@@ -652,7 +683,7 @@ namespace Box2DNet.Dynamics
 		/// Get the local position of the center of mass.
 		/// </summary>
 		/// <returns></returns>
-		public Vec2 GetLocalCenter()
+		public Vector2 GetLocalCenter()
 		{
 			return _sweep.LocalCenter;
 		}
@@ -661,7 +692,7 @@ namespace Box2DNet.Dynamics
 		/// Set the linear velocity of the center of mass.
 		/// </summary>
 		/// <param name="v">The new linear velocity of the center of mass.</param>
-		public void SetLinearVelocity(Vec2 v)
+		public void SetLinearVelocity(Vector2 v)
 		{
 			_linearVelocity = v;
 		}
@@ -670,7 +701,7 @@ namespace Box2DNet.Dynamics
 		/// Get the linear velocity of the center of mass.
 		/// </summary>
 		/// <returns>Return the linear velocity of the center of mass.</returns>
-		public Vec2 GetLinearVelocity()
+		public Vector2 GetLinearVelocity()
 		{
 			return _linearVelocity;
 		}
@@ -700,14 +731,15 @@ namespace Box2DNet.Dynamics
 		/// </summary>
 		/// <param name="force">The world force vector, usually in Newtons (N).</param>
 		/// <param name="point">The world position of the point of application.</param>
-		public void ApplyForce(Vec2 force, Vec2 point)
+		public void ApplyForce(Vector2 force, Vector2 point)
 		{
 			if (IsSleeping())
 			{
 				WakeUp();
 			}
+			
 			_force += force;
-			_torque += Vec2.Cross(point - _sweep.C, force);
+			_torque += (point - _sweep.C).Cross(force);
 		}
 
 		/// <summary>
@@ -732,14 +764,15 @@ namespace Box2DNet.Dynamics
 		/// </summary>
 		/// <param name="impulse">The world impulse vector, usually in N-seconds or kg-m/s.</param>
 		/// <param name="point">The world position of the point of application.</param>
-		public void ApplyImpulse(Vec2 impulse, Vec2 point)
+		public void ApplyImpulse(Vector2 impulse, Vector2 point)
 		{
 			if (IsSleeping())
 			{
 				WakeUp();
 			}
+		
 			_linearVelocity += _invMass * impulse;
-			_angularVelocity += _invI * Vec2.Cross(point - _sweep.C, impulse);
+			_angularVelocity += _invI * (point - _sweep.C).Cross(impulse);
 		}
 
 		/// <summary>
@@ -766,13 +799,11 @@ namespace Box2DNet.Dynamics
 		/// <returns>A struct containing the mass, inertia and center of the body.</returns>
 		public MassData GetMassData()
 		{
-		    MassData massData = new MassData
-		    {
-		        Mass = _mass,
-		        I = _I,
-		        Center = GetWorldCenter()
-		    };
-		    return massData;
+			MassData massData = new MassData();
+			massData.Mass = _mass;
+			massData.I = _I;
+			massData.Center = GetWorldCenter();
+			return massData;
 		}
 
 		/// <summary>
@@ -780,9 +811,9 @@ namespace Box2DNet.Dynamics
 		/// </summary>
 		/// <param name="localPoint">A point on the body measured relative the the body's origin.</param>
 		/// <returns>Return the same point expressed in world coordinates.</returns>
-		public Vec2 GetWorldPoint(Vec2 localPoint)
+		public Vector2 GetWorldPoint(Vector2 localPoint)
 		{
-			return Common.Math.Mul(_xf, localPoint);
+			return _xf.TransformPoint(localPoint);
 		}
 
 		/// <summary>
@@ -790,9 +821,9 @@ namespace Box2DNet.Dynamics
 		/// </summary>
 		/// <param name="localVector">A vector fixed in the body.</param>
 		/// <returns>Return the same vector expressed in world coordinates.</returns>
-		public Vec2 GetWorldVector(Vec2 localVector)
+		public Vector2 GetWorldVector(Vector2 localVector)
 		{
-			return Common.Math.Mul(_xf.R, localVector);
+			return _xf.TransformDirection(localVector);
 		}
 
 		/// <summary>
@@ -800,9 +831,9 @@ namespace Box2DNet.Dynamics
 		/// </summary>
 		/// <param name="worldPoint">A point in world coordinates.</param>
 		/// <returns>Return the corresponding local point relative to the body's origin.</returns>
-		public Vec2 GetLocalPoint(Vec2 worldPoint)
+		public Vector2 GetLocalPoint(Vector2 worldPoint)
 		{
-			return Common.Math.MulT(_xf, worldPoint);
+			return _xf.InverseTransformPoint(worldPoint);
 		}
 
 		/// <summary>
@@ -810,9 +841,9 @@ namespace Box2DNet.Dynamics
 		/// </summary>
 		/// <param name="worldVector">A vector in world coordinates.</param>
 		/// <returns>Return the corresponding local vector.</returns>
-		public Vec2 GetLocalVector(Vec2 worldVector)
+		public Vector2 GetLocalVector(Vector2 worldVector)
 		{
-			return Common.Math.MulT(_xf.R, worldVector);
+			return _xf.InverseTransformDirection(worldVector);
 		}
 
 		/// <summary>
@@ -820,9 +851,9 @@ namespace Box2DNet.Dynamics
 		/// </summary>
 		/// <param name="worldPoint">A point in world coordinates.</param>
 		/// <returns>The world velocity of a point.</returns>
-		public Vec2 GetLinearVelocityFromWorldPoint(Vec2 worldPoint)
+		public Vector2 GetLinearVelocityFromWorldPoint(Vector2 worldPoint)
 		{
-			return _linearVelocity + Vec2.Cross(_angularVelocity, worldPoint - _sweep.C);
+			return _linearVelocity + (worldPoint - _sweep.C).CrossScalarPreMultiply(_angularVelocity);
 		}
 
 		/// <summary>
@@ -830,7 +861,7 @@ namespace Box2DNet.Dynamics
 		/// </summary>
 		/// <param name="localPoint">A point in local coordinates.</param>
 		/// <returns>The world velocity of a point.</returns>
-		public Vec2 GetLinearVelocityFromLocalPoint(Vec2 localPoint)
+		public Vector2 GetLinearVelocityFromLocalPoint(Vector2 localPoint)
 		{
 			return GetLinearVelocityFromWorldPoint(GetWorldPoint(localPoint));
 		}
@@ -996,9 +1027,9 @@ namespace Box2DNet.Dynamics
 		{
 			_flags |= BodyFlags.Sleep;
 			_sleepTime = 0.0f;
-			_linearVelocity.SetZero();
+			_linearVelocity = Vector2.Zero;
 			_angularVelocity = 0.0f;
-			_force.SetZero();
+			_force = Vector2.Zero;
 			_torque = 0.0f;
 		}
 
@@ -1057,8 +1088,9 @@ namespace Box2DNet.Dynamics
 
 		internal void SynchronizeTransform()
 		{
-			_xf.R.Set(_sweep.A);
-			_xf.Position = _sweep.C - Common.Math.Mul(_xf.R, _sweep.LocalCenter);
+			//_xf.R = new Mat22(_sweep.A);
+			_xf.rotation = Box2DNet.Common.Math.AngleToRotation(_sweep.A);
+			_xf.position = _sweep.C - _xf.TransformDirection(_sweep.LocalCenter);//Common.Math.Mul(_xf.R, _sweep.LocalCenter);
 		}
 
 		internal void Advance(float t)

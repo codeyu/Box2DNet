@@ -1,5 +1,5 @@
 ﻿/*
-  Box2DX Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
+  Box2DNet Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
   Box2D original C++ version Copyright (c) 2006-2009 Erin Catto http://www.gphysics.com
 
   This software is provided 'as-is', without any express or implied
@@ -19,7 +19,6 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-using Box2DNet.Dynamics;
 using Box2DNet.Collision;
 
 namespace Box2DNet.Dynamics

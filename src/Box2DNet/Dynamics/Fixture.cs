@@ -1,5 +1,5 @@
-﻿/*
-  Box2DX Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
+/*
+  Box2DNet Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
   Box2D original C++ version Copyright (c) 2006-2009 Erin Catto http://www.gphysics.com
 
   This software is provided 'as-is', without any express or implied
@@ -19,12 +19,14 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-using System;
+using System; using System.Numerics;
 using System.Collections.Generic;
 using System.Text;
-using Box2DNet;
 using Box2DNet.Collision;
 using Box2DNet.Common;
+
+ 
+using Transform = Box2DNet.Common.Transform;
 
 namespace Box2DNet.Dynamics
 {
@@ -115,13 +117,13 @@ namespace Box2DNet.Dynamics
 	/// </summary>
 	public class CircleDef : FixtureDef
 	{
-		public Vec2 LocalPosition;
+		public Vector2 LocalPosition;
 		public float Radius;
 
 		public CircleDef()
 		{
 			Type = ShapeType.CircleShape;
-			LocalPosition = Vec2.Zero;
+			LocalPosition = Vector2.Zero;
 			Radius = 1.0f;
 		}
 	}
@@ -141,7 +143,7 @@ namespace Box2DNet.Dynamics
 		/// <summary>
 		/// The polygon vertices in local coordinates.
 		/// </summary>
-		public Vec2[] Vertices = new Vec2[Settings.MaxPolygonVertices];
+		public Vector2[] Vertices = new Vector2[Settings.MaxPolygonVertices];
 
 		public PolygonDef()
 		{
@@ -157,10 +159,10 @@ namespace Box2DNet.Dynamics
 		public void SetAsBox(float hx, float hy)
 		{
 			VertexCount = 4;
-			Vertices[0].Set(-hx, -hy);
-			Vertices[1].Set(hx, -hy);
-			Vertices[2].Set(hx, hy);
-			Vertices[3].Set(-hx, hy);
+			Vertices[0] = new Vector2(-hx, -hy);
+			Vertices[1] = new Vector2(hx, -hy);
+			Vertices[2] = new Vector2(hx, hy);
+			Vertices[3] = new Vector2(-hx, hy);
 		}
 
 
@@ -171,16 +173,20 @@ namespace Box2DNet.Dynamics
 		/// <param name="hy">The half-height.</param>
 		/// <param name="center">The center of the box in local coordinates.</param>
 		/// <param name="angle">The rotation of the box in local coordinates.</param>
-		public void SetAsBox(float hx, float hy, Vec2 center, float angle)
+		public void SetAsBox(float hx, float hy, Vector2 center, float angle)
 		{
 			SetAsBox(hx, hy);
 
-		    XForm xf = new XForm {Position = center};
-		    xf.R.Set(angle);
+			Transform xf = new Transform();
+			xf.position = center;
+			xf.rotation = Box2DNet.Common.Math.AngleToRotation(angle);
+			//xf.R = new Mat22(angle);
+			
+			//Debug.Log(string.Format("xf.position = ({0},{1}) xf.rotation = ({2},{3},{4},{5})", xf.position.x, xf.position.y, xf.rotation.x, xf.rotation.y, xf.rotation.z, xf.rotation.w));
 
 			for (int i = 0; i < VertexCount; ++i)
 			{
-				Vertices[i] = Common.Math.Mul(xf, Vertices[i]);
+				Vertices[i] = xf.TransformPoint(Vertices[i]);
 			}
 		}
 	}
@@ -198,17 +204,17 @@ namespace Box2DNet.Dynamics
 		/// <summary>
 		/// The start vertex.
 		/// </summary>
-		public Vec2 Vertex1;
+		public Vector2 Vertex1;
 
 		/// <summary>
 		/// The end vertex.
 		/// </summary>
-		public Vec2 Vertex2;
+		public Vector2 Vertex2;
 	}
 
 	/// <summary>
 	/// A fixture is used to attach a shape to a body for collision detection. A fixture
-	/// inherits its transform from its parent. Fixtures hold additional non-geometric data
+	/// inherits its Transform from its parent. Fixtures hold additional non-geometric data
 	/// such as friction, collision filters, etc.
 	/// Fixtures are created via Body.CreateFixture.
 	/// @warning you cannot reuse fixtures.
@@ -281,7 +287,7 @@ namespace Box2DNet.Dynamics
 			_proxyId = PairManager.NullProxy;
 		}
 
-		public void Create(BroadPhase broadPhase, Body body, XForm xf, FixtureDef def)
+		public void Create(BroadPhase broadPhase, Body body, Transform xf, FixtureDef def)
 		{
 			UserData = def.UserData;
 			Friction = def.Friction;
@@ -342,7 +348,14 @@ namespace Box2DNet.Dynamics
 			// You are creating a shape outside the world box.
 			Box2DNetDebug.Assert(inRange);
 
-			_proxyId = inRange ? broadPhase.CreateProxy(aabb, this) : PairManager.NullProxy;
+			if (inRange)
+			{
+				_proxyId = broadPhase.CreateProxy(aabb, this);
+			}
+			else
+			{
+				_proxyId = PairManager.NullProxy;
+			}
 		}
 
 		public void Destroy(BroadPhase broadPhase)
@@ -359,7 +372,7 @@ namespace Box2DNet.Dynamics
 			_shape = null;
 		}
 
-		internal bool Synchronize(BroadPhase broadPhase, XForm transform1, XForm transform2)
+		internal bool Synchronize(BroadPhase broadPhase, Transform Transform1, Transform Transform2)
 		{
 			if (_proxyId == PairManager.NullProxy)
 			{
@@ -368,8 +381,8 @@ namespace Box2DNet.Dynamics
 
 			// Compute an AABB that covers the swept shape (may miss some rotation effect).
 			AABB aabb1, aabb2;
-			_shape.ComputeAABB(out aabb1, transform1);
-			_shape.ComputeAABB(out aabb2, transform2);
+			_shape.ComputeAABB(out aabb1, Transform1);
+			_shape.ComputeAABB(out aabb2, Transform2);
 
 			AABB aabb = new AABB();
 			aabb.Combine(aabb1, aabb2);
@@ -385,7 +398,7 @@ namespace Box2DNet.Dynamics
 			}
 		}
 
-		internal void RefilterProxy(BroadPhase broadPhase, XForm transform)
+		internal void RefilterProxy(BroadPhase broadPhase, Transform Transform)
 		{
 			if (_proxyId == PairManager.NullProxy)
 			{
@@ -395,11 +408,18 @@ namespace Box2DNet.Dynamics
 			broadPhase.DestroyProxy(_proxyId);
 
 			AABB aabb;
-			_shape.ComputeAABB(out aabb, transform);
+			_shape.ComputeAABB(out aabb, Transform);
 
 			bool inRange = broadPhase.InRange(aabb);
 
-			_proxyId = inRange ? broadPhase.CreateProxy(aabb, this) : PairManager.NullProxy;
+			if (inRange)
+			{
+				_proxyId = broadPhase.CreateProxy(aabb, this);
+			}
+			else
+			{
+				_proxyId = PairManager.NullProxy;
+			}
 		}
 
 		public virtual void Dispose()
@@ -425,18 +445,18 @@ namespace Box2DNet.Dynamics
 		/// <param name="offset">Offset the surface offset along normal.</param>
 		/// <param name="c">Returns the centroid.</param>
 		/// <returns>The total volume less than offset along normal.</returns>
-		public float ComputeSubmergedArea(Vec2 normal, float offset, out Vec2 c)
+		public float ComputeSubmergedArea(Vector2 normal, float offset, out Vector2 c)
 		{
-			return _shape.ComputeSubmergedArea(normal, offset, _body.GetXForm(), out c);
+			return _shape.ComputeSubmergedArea(normal, offset, _body.GetTransform(), out c);
 		}
 
 		/// <summary>
 		/// Test a point for containment in this fixture. This only works for convex shapes.
 		/// </summary>
 		/// <param name="p">A point in world coordinates.</param>
-		public bool TestPoint(Vec2 p)
+		public bool TestPoint(Vector2 p)
 		{
-			return _shape.TestPoint(_body.GetXForm(), p);
+			return _shape.TestPoint(_body.GetTransform(), p);
 		}
 
 		/// <summary>
@@ -448,15 +468,15 @@ namespace Box2DNet.Dynamics
 		/// is not set.</param>
 		/// <param name="segment">Defines the begin and end point of the ray cast.</param>
 		/// <param name="maxLambda">A number typically in the range [0,1].</param>
-		public SegmentCollide TestSegment(out float lambda, out Vec2 normal, Segment segment, float maxLambda)
+		public SegmentCollide TestSegment(out float lambda, out Vector2 normal, Segment segment, float maxLambda)
 		{
-			return _shape.TestSegment(_body.GetXForm(), out lambda, out normal, segment, maxLambda);
+			return _shape.TestSegment(_body.GetTransform(), out lambda, out normal, segment, maxLambda);
 		}
 
 		/// <summary>
 		/// Get the maximum radius about the parent body's center of mass.
 		/// </summary>
-		public float ComputeSweepRadius(Vec2 pivot)
+		public float ComputeSweepRadius(Vector2 pivot)
 		{
 			return _shape.ComputeSweepRadius(pivot);
 		}

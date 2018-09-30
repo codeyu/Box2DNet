@@ -1,15 +1,12 @@
-﻿/*
-  Box2DX Copyright (c) 2008 Ihar Kalasouski http://code.google.com/p/box2dx
+/*
+  Box2DNet Copyright (c) 2018 codeyu https://github.com/codeyu/Box2DNet
   Box2D original C++ version Copyright (c) 2006-2007 Erin Catto http://www.gphysics.com
-
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
   arising from the use of this software.
-
   Permission is granted to anyone to use this software for any purpose,
   including commercial applications, and to alter it and redistribute it
   freely, subject to the following restrictions:
-
   1. The origin of this software must not be misrepresented; you must not
      claim that you wrote the original software. If you use this software
      in a product, an acknowledgment in the product documentation would be
@@ -21,10 +18,10 @@
 
 //r175
 
-using System;
+using System; using System.Numerics;
 using System.Collections.Generic;
 using System.Text;
-using Box2DNet;
+ 
 
 namespace Box2DNet.Common
 {
@@ -36,7 +33,7 @@ namespace Box2DNet.Common
 		/// <summary>
 		/// Construct this matrix using columns.
 		/// </summary>
-		public Mat33(Vec3 c1, Vec3 c2, Vec3 c3)
+		public Mat33(Vector3 c1, Vector3 c2, Vector3 c3)
 		{
 			Col1 = c1;
 			Col2 = c2;
@@ -48,27 +45,25 @@ namespace Box2DNet.Common
 		/// </summary>
 		public void SetZero()
 		{
-			Col1.SetZero();
-			Col2.SetZero();
-			Col3.SetZero();
+			Col1 = Vector3.Zero;
+			Col2 = Vector3.Zero;
+			Col3 = Vector3.Zero;
 		}
 
 		/// <summary>
 		/// Solve A * x = b, where b is a column vector. This is more efficient
 		/// than computing the inverse in one-shot cases.
 		/// </summary>
-		public Vec3 Solve33(Vec3 b)
+		public Vector3 Solve33(Vector3 b)
 		{
-			float det = Vec3.Dot(Col1, Vec3.Cross(Col2, Col3));
+			float det = Vector3.Dot(Col1, Vector3.Cross(Col2, Col3));
 			Box2DNetDebug.Assert(det != 0.0f);
 			det = 1.0f / det;
-		    Vec3 x = new Vec3
-		    {
-		        X = det*Vec3.Dot(b, Vec3.Cross(Col2, Col3)),
-		        Y = det*Vec3.Dot(Col1, Vec3.Cross(b, Col3)),
-		        Z = det*Vec3.Dot(Col1, Vec3.Cross(Col2, b))
-		    };
-		    return x;
+			Vector3 x = new Vector3();
+			x.X = det * Vector3.Dot(b, Vector3.Cross(Col2, Col3));
+			x.Y = det * Vector3.Dot(Col1, Vector3.Cross(b, Col3));
+			x.Z = det * Vector3.Dot(Col1, Vector3.Cross(Col2, b));
+			return x;
 		}
 
 		/// <summary>
@@ -76,20 +71,20 @@ namespace Box2DNet.Common
 		/// than computing the inverse in one-shot cases. Solve only the upper
 		/// 2-by-2 matrix equation.
 		/// </summary>
-		public Vec2 Solve22(Vec2 b)
+		public Vector2 Solve22(Vector2 b)
 		{
 			float a11 = Col1.X, a12 = Col2.X, a21 = Col1.Y, a22 = Col2.Y;
 			float det = a11 * a22 - a12 * a21;
 			Box2DNetDebug.Assert(det != 0.0f);
 			det = 1.0f / det;
-		    Vec2 x = new Vec2
-		    {
-		        X = det*(a22*b.X - a12*b.Y),
-		        Y = det*(a11*b.Y - a21*b.X)
-		    };
-		    return x;
+			Vector2 x = new Vector2();
+			x.X = det * (a22 * b.X - a12 * b.Y);
+			x.Y = det * (a11 * b.Y - a21 * b.X);
+			return x;
 		}
 
-		public Vec3 Col1, Col2, Col3;
+		public Vector3 Col1;
+		public Vector3 Col2;
+		public Vector3 Col3;
 	}
 }
