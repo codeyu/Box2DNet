@@ -57,7 +57,7 @@ namespace Box2DNet
 
 		public static void ThrowBox2DNetException(String message)
 		{
-			string msg = String.Format("Error: {0}", message);
+			string msg = $"Error: {message}";
 			throw new Exception(msg);
 		}
 	}
