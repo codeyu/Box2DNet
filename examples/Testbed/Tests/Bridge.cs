@@ -1,14 +1,18 @@
 using Box2DNet.Collision;
+using Box2DNet.Collision.Shapes;
+using Box2DNet.Common;
 using Box2DNet.Dynamics;
+using Box2DNet.Dynamics.Joints;
+using Box2DNet.Factories;
 using Testbed.Framework;
-
+using Microsoft.Xna.Framework;
 namespace Testbed.Tests
 {
     public class Bridge : Test
 	{
 		private const int Count = 30;
 
-        private BridgeTest()
+        private Bridge()
         {
             Body ground;
             {
@@ -25,7 +29,7 @@ namespace Testbed.Tests
                 for (int i = 0; i < Count; ++i)
                 {
                     Body body = BodyFactory.CreateBody(World);
-                    body.BodyType = Body.BodyType.Dynamic;
+                    body.BodyType = BodyType.Dynamic;
                     body.Position = new Vector2(-14.5f + 1.0f * i, 5.0f);
 
                     Fixture fixture = body.CreateFixture(shape);
@@ -53,7 +57,7 @@ namespace Testbed.Tests
                 PolygonShape shape = new PolygonShape(vertices, 1);
 
                 Body body = BodyFactory.CreateBody(World);
-                body.BodyType = Body.BodyType.Dynamic;
+                body.BodyType = BodyType.Dynamic;
                 body.Position = new Vector2(-8.0f + 8.0f * i, 12.0f);
 
                 body.CreateFixture(shape);
@@ -64,7 +68,7 @@ namespace Testbed.Tests
                 CircleShape shape = new CircleShape(0.5f, 1);
 
                 Body body = BodyFactory.CreateBody(World);
-                body.BodyType = Body.BodyType.Dynamic;
+                body.BodyType = BodyType.Dynamic;
                 body.Position = new Vector2(-6.0f + 6.0f * i, 10.0f);
 
                 body.CreateFixture(shape);
@@ -73,7 +77,7 @@ namespace Testbed.Tests
 
         internal static Test Create()
         {
-            return new BridgeTest();
+            return new Bridge();
         }
 	}
 }

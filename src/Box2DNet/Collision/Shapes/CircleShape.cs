@@ -1,182 +1,198 @@
 ﻿/*
-  Box2DNet Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
-  Box2D original C++ version Copyright (c) 2006-2009 Erin Catto http://www.gphysics.com
-
-  This software is provided 'as-is', without any express or implied
-  warranty.  In no event will the authors be held liable for any damages
-  arising from the use of this software.
-
-  Permission is granted to anyone to use this software for any purpose,
-  including commercial applications, and to alter it and redistribute it
-  freely, subject to the following restrictions:
-
-  1. The origin of this software must not be misrepresented; you must not
-     claim that you wrote the original software. If you use this software
-     in a product, an acknowledgment in the product documentation would be
-     appreciated but is not required.
-  2. Altered source versions must be plainly marked as such, and must not be
-     misrepresented as being the original software.
-  3. This notice may not be removed or altered from any source distribution.
+* Farseer Physics Engine:
+* Copyright (c) 2012 Ian Qvist
+* 
+* Original source Box2D:
+* Copyright (c) 2006-2011 Erin Catto http://www.box2d.org
+*
+* This software is provided 'as-is', without any express or implied
+* warranty.  In no event will the authors be held liable for any damages
+* arising from the use of this software.
+* Permission is granted to anyone to use this software for any purpose,
+* including commercial applications, and to alter it and redistribute it
+* freely, subject to the following restrictions:
+* 1. The origin of this software must not be misrepresented; you must not
+* claim that you wrote the original software. If you use this software
+* in a product, an acknowledgment in the product documentation would be
+* appreciated but is not required.
+* 2. Altered source versions must be plainly marked as such, and must not be
+* misrepresented as being the original software.
+* 3. This notice may not be removed or altered from any source distribution.
 */
 
+using System;
+using System.Diagnostics;
 using Box2DNet.Common;
-using System.Numerics;
+using Microsoft.Xna.Framework;
 
-using Transform = Box2DNet.Common.Transform;
-
-namespace Box2DNet.Collision
+namespace Box2DNet.Collision.Shapes
 {
-	/// <summary>
-	/// A circle shape.
-	/// </summary>
-	public class CircleShape : Shape
-	{
-		// Position
-		internal Vector2 _position;
+    /// <summary>
+    /// A circle shape.
+    /// </summary>
+    public class CircleShape : Shape
+    {
+        internal Vector2 _position;
 
-		public CircleShape()			
-		{
-			_type = ShapeType.CircleShape;
-		}
+        /// <summary>
+        /// Create a new circle with the desired radius and density.
+        /// </summary>
+        /// <param name="radius">The radius of the circle.</param>
+        /// <param name="density">The density of the circle.</param>
+        public CircleShape(float radius, float density)
+            : base(density)
+        {
+            Debug.Assert(radius >= 0);
+            Debug.Assert(density >= 0);
 
-		public override bool TestPoint(Transform xf, Vector2 p)
-		{
-			Vector2 center = xf.position + xf.TransformDirection(_position);
-			Vector2 d = p - center;
-			return Vector2.Dot(d, d) <= _radius * _radius;
-		}
+            ShapeType = ShapeType.Circle;
+            _position = Vector2.Zero;
+            Radius = radius; // The Radius property cache 2radius and calls ComputeProperties(). So no need to call ComputeProperties() here.
+        }
 
-		// Collision Detection in Interactive 3D Environments by Gino van den Bergen
-		// From Section 3.1.2
-		// x = s + a * r
-		// norm(x) = radius
-		public override SegmentCollide TestSegment(Transform xf, out float lambda, out Vector2 normal, Segment segment, float maxLambda)
-		{
-			lambda = 0f;
-			normal = Vector2.Zero;
+        internal CircleShape()
+            : base(0)
+        {
+            ShapeType = ShapeType.Circle;
+            _radius = 0.0f;
+            _position = Vector2.Zero;
+        }
 
-			Vector2 position = xf.position + xf.TransformDirection(_position);
-			Vector2 s = segment.P1 - position;
-			float b = Vector2.Dot(s, s) - _radius * _radius;
+        public override int ChildCount
+        {
+            get { return 1; }
+        }
 
-			// Does the segment start inside the circle?
-			if (b < 0.0f)
-			{
-				lambda = 0f;
-				return SegmentCollide.StartInsideCollide;
-			}
+        /// <summary>
+        /// Get or set the position of the circle
+        /// </summary>
+        public Vector2 Position
+        {
+            get { return _position; }
+            set
+            {
+                _position = value;
+                ComputeProperties(); //TODO: Optimize here
+            }
+        }
 
-			// Solve quadratic equation.
-			Vector2 r = segment.P2 - segment.P1;
-			float c = Vector2.Dot(s, r);
-			float rr = Vector2.Dot(r, r);
-			float sigma = c * c - rr * b;
+        public override bool TestPoint(ref Transform transform, ref Vector2 point)
+        {
+            Vector2 center = transform.p + MathUtils.Mul(transform.q, Position);
+            Vector2 d = point - center;
+            return Vector2.Dot(d, d) <= _2radius;
+        }
 
-			// Check for negative discriminant and short segment.
-			if (sigma < 0.0f || rr < Common.Settings.FLT_EPSILON)
-			{
-				return SegmentCollide.MissCollide;
-			}
+        public override bool RayCast(out RayCastOutput output, ref RayCastInput input, ref Transform transform, int childIndex)
+        {
+            // Collision Detection in Interactive 3D Environments by Gino van den Bergen
+            // From Section 3.1.2
+            // x = s + a * r
+            // norm(x) = radius
 
-			// Find the point of intersection of the line with the circle.
-			float a = -(c + Common.Math.Sqrt(sigma));
+            output = new RayCastOutput();
 
-			// Is the intersection point on the segment?
-			if (0.0f <= a && a <= maxLambda * rr)
-			{
-				a /= rr;
-				lambda = a;
-				normal = s + a * r;
-				normal.Normalize();
-				return SegmentCollide.HitCollide;
-			}
+            Vector2 position = transform.p + MathUtils.Mul(transform.q, Position);
+            Vector2 s = input.Point1 - position;
+            float b = Vector2.Dot(s, s) - _2radius;
 
-			return SegmentCollide.MissCollide;
-		}
+            // Solve quadratic equation.
+            Vector2 r = input.Point2 - input.Point1;
+            float c = Vector2.Dot(s, r);
+            float rr = Vector2.Dot(r, r);
+            float sigma = c * c - rr * b;
 
-		public override void ComputeAABB(out AABB aabb, Transform xf)
-		{
-			aabb = new AABB();
+            // Check for negative discriminant and short segment.
+            if (sigma < 0.0f || rr < Settings.Epsilon)
+            {
+                return false;
+            }
 
-			Vector2 p = xf.position + xf.TransformDirection(_position);
-			aabb.LowerBound = new Vector2(p.X - _radius, p.Y - _radius);
-			aabb.UpperBound = new Vector2(p.X + _radius, p.Y + _radius);
-		}
+            // Find the point of intersection of the line with the circle.
+            float a = -(c + (float)Math.Sqrt(sigma));
 
-		public override void ComputeMass(out MassData massData, float density)
-		{
-			massData = new MassData();
+            // Is the intersection point on the segment?
+            if (0.0f <= a && a <= input.MaxFraction * rr)
+            {
+                a /= rr;
+                output.Fraction = a;
 
-			massData.Mass = density * (float)System.Math.PI * _radius * _radius;
-			massData.Center = _position;
+                //TODO: Check results here
+                output.Normal = s + a * r;
+                output.Normal.Normalize();
+                return true;
+            }
 
-			// inertia about the local origin
-			massData.I = massData.Mass * (0.5f * _radius * _radius + Vector2.Dot(_position, _position));
-		}		
+            return false;
+        }
 
-		public override float ComputeSubmergedArea(Vector2 normal, float offset, Transform xf, out Vector2 c)
-		{
-			Vector2 p = xf.TransformPoint(_position);
-			float l = -(Vector2.Dot(normal, p) - offset);
-			if (l < -_radius + Box2DNet.Common.Settings.FLT_EPSILON)
-			{
-				//Completely dry
-				c = new Vector2();
-				return 0;
-			}
-			if (l > _radius)
-			{
-				//Completely wet
-				c = p;
-				return Box2DNet.Common.Settings.Pi * _radius * _radius;
-			}
+        public override void ComputeAABB(out AABB aabb, ref Transform transform, int childIndex)
+        {
+            Vector2 p = transform.p + MathUtils.Mul(transform.q, Position);
+            aabb.LowerBound = new Vector2(p.X - Radius, p.Y - Radius);
+            aabb.UpperBound = new Vector2(p.X + Radius, p.Y + Radius);
+        }
 
-			//Magic
-			float r2 = _radius * _radius;
-			float l2 = l * l;
-			float area = r2 * ((float)System.Math.Asin(l / _radius) + Box2DNet.Common.Settings.Pi / 2) +
-				l * Box2DNet.Common.Math.Sqrt(r2 - l2);
-			float com = -2.0f / 3.0f * (float)System.Math.Pow(r2 - l2, 1.5f) / area;
+        protected override sealed void ComputeProperties()
+        {
+            float area = Settings.Pi * _2radius;
+            MassData.Area = area;
+            MassData.Mass = Density * area;
+            MassData.Centroid = Position;
 
-			c.X = p.X + normal.X * com;
-			c.Y = p.Y + normal.Y * com;
+            // inertia about the local origin
+            MassData.Inertia = MassData.Mass * (0.5f * _2radius + Vector2.Dot(Position, Position));
+        }
 
-			return area;
-		}
+        public override float ComputeSubmergedArea(ref Vector2 normal, float offset, ref Transform xf, out Vector2 sc)
+        {
+            sc = Vector2.Zero;
 
-		/// <summary>
-		/// Get the supporting vertex index in the given direction.
-		/// </summary>
-		public override int GetSupport(Vector2 d)
-		{
-			return 0;
-		}
+            Vector2 p = MathUtils.Mul(ref xf, Position);
+            float l = -(Vector2.Dot(normal, p) - offset);
+            if (l < -Radius + Settings.Epsilon)
+            {
+                //Completely dry
+                return 0;
+            }
+            if (l > Radius)
+            {
+                //Completely wet
+                sc = p;
+                return Settings.Pi * _2radius;
+            }
 
-		/// <summary>
-		/// Get the supporting vertex in the given direction.
-		/// </summary>
-		public override Vector2 GetSupportVertex(Vector2 d)
-		{
-			return _position;
-		}
+            //Magic
+            float l2 = l * l;
+            float area = _2radius * (float)((Math.Asin(l / Radius) + Settings.Pi / 2) + l * Math.Sqrt(_2radius - l2));
+            float com = -2.0f / 3.0f * (float)Math.Pow(_2radius - l2, 1.5f) / area;
 
-		/// <summary>
-		/// Get a vertex by index. Used by Distance.
-		/// </summary>
-		public override Vector2 GetVertex(int index)
-		{
-			Box2DNetDebug.Assert(index == 0);
-			return _position;
-		}
+            sc.X = p.X + normal.X * com;
+            sc.Y = p.Y + normal.Y * com;
 
-		public override float ComputeSweepRadius(Vector2 pivot)
-		{
-			return Box2DNet.Common.Math.Distance(_position, pivot);
-		}
+            return area;
+        }
 
-		/// <summary>
-		/// Get the vertex count.
-		/// </summary>
-		public int VertexCount { get { return 1; } }
-	}
+        /// <summary>
+        /// Compare the circle to another circle
+        /// </summary>
+        /// <param name="shape">The other circle</param>
+        /// <returns>True if the two circles are the same size and have the same position</returns>
+        public bool CompareTo(CircleShape shape)
+        {
+            return (Radius == shape.Radius && Position == shape.Position);
+        }
+
+        public override Shape Clone()
+        {
+            CircleShape clone = new CircleShape();
+            clone.ShapeType = ShapeType;
+            clone._radius = Radius;
+            clone._2radius = _2radius; //FPE note: We also copy the cache
+            clone._density = _density;
+            clone._position = _position;
+            clone.MassData = MassData;
+            return clone;
+        }
+    }
 }

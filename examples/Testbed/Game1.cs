@@ -1,26 +1,30 @@
 using System;
+using Box2DNet.Common;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using Testbed.Framework;
 
 namespace Testbed
 {
+    /// <summary>
+    /// This is the main type for your game
+    /// </summary>
     public class Game1 : Game
     {
         private TestEntry _entry;
-        private readonly GraphicsDeviceManager _graphics;
-        private readonly KeyboardManager _keyboardManager = new KeyboardManager();
+        private GraphicsDeviceManager _graphics;
+        private KeyboardManager _keyboardManager = new KeyboardManager();
         private Vector2 _lower;
         private GamePadState _oldGamePad;
         private MouseState _oldMouseState;
-        private Matrix _projection;
-        private readonly GameSettings _settings = new GameSettings();
+        public Matrix Projection;
+        private GameSettings _settings = new GameSettings();
         private Test _test;
         private int _testCount;
         private int _testIndex;
         private int _testSelection;
         private Vector2 _upper;
-        private Matrix _view;
+        public Matrix View;
         private Vector2 _viewCenter;
 
         private float _viewZoom;
@@ -30,10 +34,10 @@ namespace Testbed
             //Default view
             ResetView();
 
-            _graphics = new GraphicsDeviceManager(this)
-            {
-                PreferMultiSampling = true, PreferredBackBufferWidth = 1024, PreferredBackBufferHeight = 768
-            };
+            _graphics = new GraphicsDeviceManager(this);
+            _graphics.PreferMultiSampling = true;
+            _graphics.PreferredBackBufferWidth = 1024;
+            _graphics.PreferredBackBufferHeight = 768;
 
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
@@ -43,9 +47,9 @@ namespace Testbed
             _graphics.SynchronizeWithVerticalRetrace = false;
         }
 
-        private float ViewZoom
+        public float ViewZoom
         {
-            get => _viewZoom;
+            get { return _viewZoom; }
             set
             {
                 _viewZoom = value;
@@ -53,9 +57,9 @@ namespace Testbed
             }
         }
 
-        private Vector2 ViewCenter
+        public Vector2 ViewCenter
         {
-            get => _viewCenter;
+            get { return _viewCenter; }
             set
             {
                 _viewCenter = value;
@@ -85,7 +89,7 @@ namespace Testbed
                 ++_testCount;
             }
 
-            _testIndex = Math.Clamp(_testIndex, 0, _testCount - 1);
+            _testIndex = MathUtils.Clamp(_testIndex, 0, _testCount - 1);
             _testSelection = _testIndex;
             StartTest(_testIndex);
         }
@@ -96,7 +100,7 @@ namespace Testbed
             _upper = new Vector2(25.0f * GraphicsDevice.Viewport.AspectRatio, 25.0f);
 
             // L/R/B/T
-            _projection = Matrix.CreateOrthographicOffCenter(_lower.X, _upper.X, _lower.Y, _upper.Y, -1, 1);
+            Projection = Matrix.CreateOrthographicOffCenter(_lower.X, _upper.X, _lower.Y, _upper.Y, -1, 1);
         }
 
         private void StartTest(int index)
@@ -133,8 +137,8 @@ namespace Testbed
                 Exit();
 
             _keyboardManager._newKeyboardState = Keyboard.GetState();
-            var newGamePad = GamePad.GetState(PlayerIndex.One);
-            var newMouseState = Mouse.GetState();
+            GamePadState newGamePad = GamePad.GetState(PlayerIndex.One);
+            MouseState newMouseState = Mouse.GetState();
 
 
             if (_keyboardManager.IsKeyDown(Keys.Z)) // Press 'z' to zoom out.
@@ -190,10 +194,12 @@ namespace Testbed
                 EnableOrDisableFlag(DebugViewFlags.PolygonPoints);
             else
             {
-                _test?.Keyboard(_keyboardManager);
+                if (_test != null)
+                    _test.Keyboard(_keyboardManager);
             }
 
-            _test?.Mouse(newMouseState, _oldMouseState);
+            if (_test != null)
+                _test.Mouse(newMouseState, _oldMouseState);
 
             if (_test != null && newGamePad.IsConnected)
                 _test.Gamepad(newGamePad, _oldGamePad);
@@ -204,9 +210,11 @@ namespace Testbed
             _oldMouseState = newMouseState;
             _oldGamePad = newGamePad;
 
-            if (_test == null) return;
-            _test.TextLine = 30;
-            _test.Update(_settings, gameTime);
+            if (_test != null)
+            {
+                _test.TextLine = 30;
+                _test.Update(_settings, gameTime);
+            }
         }
 
         private void EnableOrDisableFlag(DebugViewFlags flag)
@@ -232,7 +240,7 @@ namespace Testbed
                 ResetView();
             }
 
-            _test.DebugView.RenderDebugData(ref _projection, ref _view);
+            _test.DebugView.RenderDebugData(ref Projection, ref View);
 
             base.Draw(gameTime);
         }
@@ -246,18 +254,18 @@ namespace Testbed
 
         private void Resize()
         {
-            _view = Matrix.CreateTranslation(new Vector3(-ViewCenter.X, -ViewCenter.Y, 0)) * Matrix.CreateScale(ViewZoom);
+            View = Matrix.CreateTranslation(new Vector3(-ViewCenter.X, -ViewCenter.Y, 0)) * Matrix.CreateScale(ViewZoom);
         }
 
         public Vector2 ConvertWorldToScreen(Vector2 position)
         {
-            var temp = GraphicsDevice.Viewport.Project(new Vector3(position, 0), _projection, _view, Matrix.Identity);
+            Vector3 temp = GraphicsDevice.Viewport.Project(new Vector3(position, 0), Projection, View, Matrix.Identity);
             return new Vector2(temp.X, temp.Y);
         }
 
         public Vector2 ConvertScreenToWorld(int x, int y)
         {
-            var temp = GraphicsDevice.Viewport.Unproject(new Vector3(x, y, 0), _projection, _view, Matrix.Identity);
+            Vector3 temp = GraphicsDevice.Viewport.Unproject(new Vector3(x, y, 0), Projection, View, Matrix.Identity);
             return new Vector2(temp.X, temp.Y);
         }
 

@@ -1,6 +1,9 @@
 using System;
 using Box2DNet.Collision;
+using Box2DNet.Common;
 using Box2DNet.Dynamics;
+using Box2DNet.Dynamics.Contacts;
+using Box2DNet.Dynamics.Joints;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 

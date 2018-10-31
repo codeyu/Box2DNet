@@ -1,5 +1,11 @@
+using System;
+using Box2DNet.Collision.Shapes;
 using Box2DNet.Common;
 using Box2DNet.Dynamics;
+using Box2DNet.Dynamics.Joints;
+using Box2DNet.Factories;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
 using Testbed.Framework;
 using Settings = Testbed.Framework.Settings;
 
@@ -7,192 +13,228 @@ namespace Testbed.Tests
 {
     public class Car : Test
 	{
-		Body _leftWheel;
-		Body _rightWheel;
-		Body _vehicle;
-		RevoluteJoint _leftJoint;
-		RevoluteJoint _rightJoint;
+		private Body _car;
+        private float _hz;
+        private float _speed;
+        private WheelJoint _spring1;
+        private WheelJoint _spring2;
+        private Body _wheel1;
+        private Body _wheel2;
+        private float _zeta;
 
-		public Car()
-		{
-			{	// car body
-				PolygonDef poly1 = new PolygonDef(), poly2 = new PolygonDef();
+        private Car()
+        {
+            _hz = 4.0f;
+            _zeta = 0.7f;
+            _speed = 50.0f;
 
-				// bottom half
-				poly1.VertexCount = 5;
-				poly1.Vertices[4].Set(-2.2f, -0.74f);
-				poly1.Vertices[3].Set(-2.2f, 0);
-				poly1.Vertices[2].Set(1.0f, 0);
-				poly1.Vertices[1].Set(2.2f, -0.2f);
-				poly1.Vertices[0].Set(2.2f, -0.74f);
-				poly1.Filter.GroupIndex = -1;
+            Body ground = BodyFactory.CreateEdge(World, new Vector2(-20.0f, 0.0f), new Vector2(20.0f, 0.0f));
+            {
+                float[] hs = new[] { 0.25f, 1.0f, 4.0f, 0.0f, 0.0f, -1.0f, -2.0f, -2.0f, -1.25f, 0.0f };
 
-				poly1.Density = 20.0f;
-				poly1.Friction = 0.68f;
-				poly1.Filter.GroupIndex = -1;
+                float x = 20.0f, y1 = 0.0f;
+                const float dx = 5.0f;
 
-				// top half
-				poly2.VertexCount = 4;
-				poly2.Vertices[3].Set(-1.7f, 0);
-				poly2.Vertices[2].Set(-1.3f, 0.7f);
-				poly2.Vertices[1].Set(0.5f, 0.74f);
-				poly2.Vertices[0].Set(1.0f, 0);
-				poly2.Filter.GroupIndex = -1;
+                for (int i = 0; i < 10; ++i)
+                {
+                    float y2 = hs[i];
+                    FixtureFactory.AttachEdge(new Vector2(x, y1), new Vector2(x + dx, y2), ground);
+                    y1 = y2;
+                    x += dx;
+                }
 
-				poly2.Density = 5.0f;
-				poly2.Friction = 0.68f;
-				poly2.Filter.GroupIndex = -1;
+                for (int i = 0; i < 10; ++i)
+                {
+                    float y2 = hs[i];
+                    FixtureFactory.AttachEdge(new Vector2(x, y1), new Vector2(x + dx, y2), ground);
+                    y1 = y2;
+                    x += dx;
+                }
 
-				BodyDef bd = new BodyDef();
-				bd.Position.Set(-35.0f, 2.8f);
+                FixtureFactory.AttachEdge(new Vector2(x, 0.0f), new Vector2(x + 40.0f, 0.0f), ground);
+                x += 80.0f;
+                FixtureFactory.AttachEdge(new Vector2(x, 0.0f), new Vector2(x + 40.0f, 0.0f), ground);
+                x += 40.0f;
+                FixtureFactory.AttachEdge(new Vector2(x, 0.0f), new Vector2(x + 10.0f, 5.0f), ground);
+                x += 20.0f;
+                FixtureFactory.AttachEdge(new Vector2(x, 0.0f), new Vector2(x + 40.0f, 0.0f), ground);
+                x += 40.0f;
+                FixtureFactory.AttachEdge(new Vector2(x, 0.0f), new Vector2(x, 20.0f), ground);
 
-				_vehicle = _world.CreateBody(bd);
-				_vehicle.CreateFixture(poly1);
-				_vehicle.CreateFixture(poly2);
-				_vehicle.SetMassFromShapes();
-			}
+                ground.Friction = 0.6f;
+            }
 
-			{	// vehicle wheels
-				CircleDef circ = new CircleDef();
-				circ.Density = 40.0f;
-				circ.Radius = 0.38608f;
-				circ.Friction = 0.8f;
-				circ.Filter.GroupIndex = -1;
+            // Teeter
+            {
+                Body body = new Body(World);
+                body.BodyType = BodyType.Dynamic;
+                body.Position = new Vector2(140.0f, 1.0f);
 
-				BodyDef bd = new BodyDef();
-				bd.AllowSleep = false;
-				bd.Position.Set(-33.8f, 2.0f);
+                PolygonShape box = new PolygonShape(1);
+                box.Vertices = PolygonTools.CreateRectangle(10.0f, 0.25f);
+                body.CreateFixture(box);
 
-				_rightWheel = _world.CreateBody(bd);
-				_rightWheel.CreateFixture(circ);
-				_rightWheel.SetMassFromShapes();
+                RevoluteJoint jd = JointFactory.CreateRevoluteJoint(World, ground, body, Vector2.Zero);
+                jd.LowerLimit = -8.0f * Settings.Pi / 180.0f;
+                jd.UpperLimit = 8.0f * Settings.Pi / 180.0f;
+                jd.LimitEnabled = true;
 
-				bd.Position.Set(-36.2f, 2.0f);
-				_leftWheel = _world.CreateBody(bd);
-				_leftWheel.CreateFixture(circ);
-				_leftWheel.SetMassFromShapes();
-			}
+                body.ApplyAngularImpulse(100.0f);
+            }
 
-			{	// join wheels to chassis
-				Vec2 anchor = new Vec2();
-				RevoluteJointDef jd = new RevoluteJointDef();
-				jd.Initialize(_vehicle, _leftWheel, _leftWheel.GetWorldCenter());
-				jd.CollideConnected = false;
-				jd.EnableMotor = true;
-				jd.MaxMotorTorque = 10.0f;
-				jd.MotorSpeed = 0.0f;
-				_leftJoint = (RevoluteJoint)_world.CreateJoint(jd);
+            //Bridge
+            {
+                const int N = 20;
+                PolygonShape shape = new PolygonShape(1);
+                shape.Vertices = PolygonTools.CreateRectangle(1.0f, 0.125f);
 
-				jd.Initialize(_vehicle, _rightWheel, _rightWheel.GetWorldCenter());
-				jd.CollideConnected = false;
-				_rightJoint = (RevoluteJoint)_world.CreateJoint(jd);
-			}
+                Body prevBody = ground;
+                for (int i = 0; i < N; ++i)
+                {
+                    Body body = new Body(World);
+                    body.BodyType = BodyType.Dynamic;
+                    body.Position = new Vector2(161.0f + 2.0f * i, -0.125f);
+                    Fixture fix = body.CreateFixture(shape);
+                    fix.Friction = 0.6f;
 
-			{	// ground
-				PolygonDef box = new PolygonDef();
-				box.SetAsBox(19.5f, 0.5f);
-				box.Friction = 0.62f;
+                    Vector2 anchor = new Vector2(-1, 0);
+                    JointFactory.CreateRevoluteJoint(World, prevBody, body, anchor);
 
-				BodyDef bd = new BodyDef();
-				bd.Position.Set(-25.0f, 1.0f);
+                    prevBody = body;
+                }
 
-				Body ground = _world.CreateBody(bd);
-				ground.CreateFixture(box);
-			}
+                Vector2 anchor2 = new Vector2(1.0f, 0);
+                JointFactory.CreateRevoluteJoint(World, ground, prevBody, anchor2);
+            }
 
-			{	// more ground
-				PolygonDef box = new PolygonDef();
-				BodyDef bd = new BodyDef();
+            // Boxes
+            {
+                PolygonShape box = new PolygonShape(0.5f);
+                box.Vertices = PolygonTools.CreateRectangle(0.5f, 0.5f);
 
-				box.SetAsBox(9.5f, 0.5f, Vec2.Zero, 0.1f * Box2DNet.Common.Settings.Pi);
-				box.Friction = 0.62f;
-				bd.Position.Set(27.0f - 30.0f, 3.1f);
+                Body body = new Body(World);
+                body.BodyType = BodyType.Dynamic;
+                body.Position = new Vector2(230.0f, 0.5f);
+                body.CreateFixture(box);
 
-				Body ground = _world.CreateBody(bd);
-				ground.CreateFixture(box);
-			}
+                body = new Body(World);
+                body.BodyType = BodyType.Dynamic;
+                body.Position = new Vector2(230.0f, 1.5f);
+                body.CreateFixture(box);
 
-			{	// more ground
-				PolygonDef box = new PolygonDef();
-				BodyDef bd = new BodyDef();
+                body = new Body(World);
+                body.BodyType = BodyType.Dynamic;
+                body.Position = new Vector2(230.0f, 2.5f);
+                body.CreateFixture(box);
 
-				box.SetAsBox(9.5f, 0.5f, Vec2.Zero, -0.1f * Box2DNet.Common.Settings.Pi);
-				box.Friction = 0.62f;
-				bd.Position.Set(55.0f - 30.0f, 3.1f);
+                body = new Body(World);
+                body.BodyType = BodyType.Dynamic;
+                body.Position = new Vector2(230.0f, 3.5f);
+                body.CreateFixture(box);
 
-				Body ground = _world.CreateBody(bd);
-				ground.CreateFixture(box);
-			}
+                body = new Body(World);
+                body.BodyType = BodyType.Dynamic;
+                body.Position = new Vector2(230.0f, 4.5f);
+                body.CreateFixture(box);
+            }
 
-			{	// more ground
-				PolygonDef box = new PolygonDef();
-				BodyDef bd = new BodyDef();
+            // Car
+            {
+                Vertices vertices = new Vertices(8);
+                vertices.Add(new Vector2(-1.5f, -0.5f));
+                vertices.Add(new Vector2(1.5f, -0.5f));
+                vertices.Add(new Vector2(1.5f, 0.0f));
+                vertices.Add(new Vector2(0.0f, 0.9f));
+                vertices.Add(new Vector2(-1.15f, 0.9f));
+                vertices.Add(new Vector2(-1.5f, 0.2f));
 
-				box.SetAsBox(9.5f, 0.5f, Vec2.Zero, 0.03f * Box2DNet.Common.Settings.Pi);
-				box.Friction = 0.62f;
-				bd.Position.Set(41.0f, 2.0f);
+                PolygonShape chassis = new PolygonShape(vertices, 1);
 
-				Body ground = _world.CreateBody(bd);
-				ground.CreateFixture(box);
-			}
+                CircleShape circle = new CircleShape(0.4f, 1);
 
-			{	// more ground
-				PolygonDef box = new PolygonDef();
-				BodyDef bd = new BodyDef();
+                _car = new Body(World);
+                _car.BodyType = BodyType.Dynamic;
+                _car.Position = new Vector2(0.0f, 1.0f);
+                _car.CreateFixture(chassis);
 
-				box.SetAsBox(5.0f, 0.5f, Vec2.Zero, 0.15f * Box2DNet.Common.Settings.Pi);
-				box.Friction = 0.62f;
-				bd.Position.Set(50.0f, 4.0f);
+                _wheel1 = new Body(World);
+                _wheel1.BodyType = BodyType.Dynamic;
+                _wheel1.Position = new Vector2(-1.0f, 0.35f);
+                _wheel1.CreateFixture(circle);
+                _wheel1.Friction = 0.9f;
 
-				Body ground = _world.CreateBody(bd);
-				ground.CreateFixture(box);
-			}
+                _wheel2 = new Body(World);
+                _wheel2.BodyType = BodyType.Dynamic;
+                _wheel2.Position = new Vector2(1.0f, 0.4f);
+                _wheel2.CreateFixture(circle);
+                _wheel2.Friction = 0.9f;
 
-			{	// more ground
-				PolygonDef box = new PolygonDef();
-				BodyDef bd = new BodyDef();
+                Vector2 axis = new Vector2(0.0f, 1.0f);
+                _spring1 = new WheelJoint(_car, _wheel1, _wheel1.Position, axis, true);
+                _spring1.MotorSpeed = 0.0f;
+                _spring1.MaxMotorTorque = 20.0f;
+                _spring1.MotorEnabled = true;
+                _spring1.Frequency = _hz;
+                _spring1.DampingRatio = _zeta;
+                World.AddJoint(_spring1);
 
-				box.SetAsBox(20.0f, 0.5f);
-				box.Friction = 0.62f;
-				bd.Position.Set(85.0f, 2.0f);
+                _spring2 = new WheelJoint(_car, _wheel2, _wheel2.Position, axis, true);
+                _spring2.MotorSpeed = 0.0f;
+                _spring2.MaxMotorTorque = 10.0f;
+                _spring2.MotorEnabled = false;
+                _spring2.Frequency = _hz;
+                _spring2.DampingRatio = _zeta;
+                World.AddJoint(_spring2);
+            }
+        }
 
-				Body ground = _world.CreateBody(bd);
-				ground.CreateFixture(box);
-			}
-		}
+        public override void Keyboard(KeyboardManager keyboardManager)
+        {
+            if (keyboardManager.IsNewKeyPress(Keys.A))
+            {
+                _spring1.MotorSpeed = _speed;
+            }
+            else if (keyboardManager.IsNewKeyPress(Keys.S))
+            {
+                _spring1.MotorSpeed = 0.0f;
+            }
+            else if (keyboardManager.IsNewKeyPress(Keys.D))
+            {
+                _spring1.MotorSpeed = -_speed;
+            }
+            else if (keyboardManager.IsNewKeyPress(Keys.Q))
+            {
+                _hz = Math.Max(0.0f, _hz - 1.0f);
+                _spring1.Frequency = _hz;
+                _spring2.Frequency = _hz;
+            }
+            else if (keyboardManager.IsNewKeyPress(Keys.E))
+            {
+                _hz += 1.0f;
+                _spring1.Frequency = _hz;
+                _spring2.Frequency = _hz;
+            }
 
-		public static Test Create()
-		{
-			return new Car();
-		}
+            base.Keyboard(keyboardManager);
+        }
 
-		public override void Keyboard(System.Windows.Forms.Keys key)
-		{
-			switch (key)
-			{
-				case System.Windows.Forms.Keys.A:
-					_leftJoint.SetMaxMotorTorque(800.0f);
-					_leftJoint.MotorSpeed = 12.0f;
-					break;
+        public override void Update(GameSettings settings, GameTime gameTime)
+        {
+            DrawString("Keys: left = a, brake = s, right = d, hz down = q, hz up = e");
 
-				case System.Windows.Forms.Keys.S:
-					_leftJoint.SetMaxMotorTorque(100.0f);
-					_leftJoint.MotorSpeed = 0.0f;
-					break;
+            DrawString(string.Format("frequency = {0} hz, damping ratio = {1}", _hz, _zeta));
 
-				case System.Windows.Forms.Keys.D:
-					_leftJoint.SetMaxMotorTorque(1200.0f);
-					_leftJoint.MotorSpeed = -36.0f;
-					break;
-			}
-		}
+            DrawString(string.Format("actual speed = {0} rad/sec", _spring1.JointSpeed));
 
-		public override void Step(Settings settings)
-		{
-			OpenGLDebugDraw.DrawString(5, _textLine, "Keys: left = a, brake = s, right = d");
-			_textLine += 15;
 
-			base.Step(settings);
-		}
+            GameInstance.ViewCenter = _car.Position;
+
+            base.Update(settings, gameTime);
+        }
+
+        internal static Test Create()
+        {
+            return new Car();
+        }
 	}
 }

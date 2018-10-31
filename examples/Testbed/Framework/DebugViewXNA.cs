@@ -4,9 +4,12 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Box2DNet.Collision;
+using Box2DNet.Collision.Shapes;
 using Box2DNet.Common;
+using Box2DNet.Controllers;
 using Box2DNet.Dynamics;
-using Box2DNet.Dynamics.Controllers;
+using Box2DNet.Dynamics.Contacts;
+using Box2DNet.Dynamics.Joints;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
@@ -100,7 +103,7 @@ namespace Testbed.Framework
                 Fixture fixtureA = contact.FixtureA;
 
                 FixedArray2<PointState> state1, state2;
-                Collision.Collision.GetPointStates(out state1, out state2, ref oldManifold, ref manifold);
+                Collision.GetPointStates(out state1, out state2, ref oldManifold, ref manifold);
 
                 FixedArray2<Vector2> points;
                 Vector2 normal;
@@ -136,9 +139,9 @@ namespace Testbed.Framework
                     {
                         if (b.Enabled == false)
                             DrawShape(f, xf, InactiveShapeColor);
-                        else if (b.BodyType == Body.BodyType.Static)
+                        else if (b.BodyType == BodyType.Static)
                             DrawShape(f, xf, StaticShapeColor);
-                        else if (b.BodyType == Body.BodyType.Kinematic)
+                        else if (b.BodyType == BodyType.Kinematic)
                             DrawShape(f, xf, KinematicShapeColor);
                         else if (b.Awake == false)
                             DrawShape(f, xf, SleepingShapeColor);
