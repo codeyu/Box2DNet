@@ -62,6 +62,9 @@ The C API is kept one to one, so the [Box2D documentation](https://box2d.org/doc
 Multithreading: set `WorldDef.workerCount` to use the built-in scheduler, or provide
 `enqueueTask`/`finishTask` to plug in your own task system.
 
+The testbed contains all the upstream samples except Replay (needs recording) and Rollback (needs
+snapshots).
+
 Not ported yet: recording/replay/snapshot, double precision (large worlds), and the 8-wide AVX2
 contact solver (the 4-wide `Vector128` solver is used everywhere and gives identical results).
 
@@ -70,7 +73,8 @@ contact solver (the 4-wide `Vector128` solver is used everywhere and gives ident
 ```
 src/Box2DNet/          the library (net10.0)
 tests/Box2DNet.Tests/  upstream unit tests and the determinism test (xunit v3)
-examples/Testbed/      interactive testbed: GLFW + OpenGL 3.3 + Dear ImGui (Hexa.NET.ImGui, latest cimgui)
+shared/                port of upstream shared/: benchmark scenes, ragdoll, determinism scene, random
+examples/Testbed/      the upstream samples app: GLFW + OpenGL 3.3 + Dear ImGui (Hexa.NET.ImGui, latest cimgui)
 doc/                   porting plan
 tools/c2cs/            the C to C# conversion scripts used for the port
 legacy/                the old v2 port
@@ -90,8 +94,10 @@ dotnet test --project tests/Box2DNet.Tests
 dotnet run --project examples/Testbed
 ```
 
-In the testbed: left drag moves bodies, right drag pans, the mouse wheel zooms, `P` pauses, `O` single steps
-and `R` restarts the sample. `--smoke` runs every sample for a few frames and exits.
+The controls follow the upstream samples app: left drag moves bodies, right drag pans, the mouse wheel zooms,
+`P` pauses, `.` single steps, `R` restarts, `[` `]` switch samples, `Ctrl+O` finds a sample and `?` shows all keys.
+`--sample <text>` opens the first sample whose name contains the text, and `--smoke [text]` runs every
+(matching) sample for a few frames and exits.
 
 ## License
 

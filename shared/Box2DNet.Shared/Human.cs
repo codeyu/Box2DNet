@@ -6,14 +6,13 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using static Box2DNet.B2;
-using static Box2DNet.Tests.TestMacros;
 
-namespace Box2DNet.Tests;
+namespace Box2DNet.Shared;
 
-public static partial class HumanShared
+public static partial class SharedLib
 {
 	// From shared/human.h
-	internal enum BoneId
+	public enum BoneId
 	{
 		bone_hip = 0,
 		bone_torso = 1,
@@ -29,7 +28,7 @@ public static partial class HumanShared
 		bone_count = 11,
 	}
 
-	internal struct Bone
+	public struct Bone
 	{
 		public BodyId bodyId;
 		public JointId jointId;
@@ -38,20 +37,26 @@ public static partial class HumanShared
 		public int parentIndex;
 	}
 
-	internal struct Human
+	[InlineArray( (int)BoneId.bone_count )]
+	public struct BoneArray
 	{
-		public Bone[] bones;
+		private Bone _element0;
+	}
+
+	public struct Human
+	{
+		public BoneArray bones;
 		public float frictionTorque;
 		public float originalScale;
 		public float scale;
 		public bool isSpawned;
 	}
 
-	internal static void CreateHuman( ref Human human, WorldId worldId, Pos position, float scale, float frictionTorque, float hertz, float dampingRatio, int groupIndex, object? userData, bool colorize )
+	public static void CreateHuman( ref Human human, WorldId worldId, Pos position, float scale, float frictionTorque, float hertz, float dampingRatio, int groupIndex, object? userData, bool colorize )
 	{
 		assert( human.isSpawned == false );
 
-		for ( int i = 0; i < bone_count; ++i )
+		for ( int i = 0; i < (int)BoneId.bone_count; ++i )
 		{
 			human.bones[i].bodyId = nullBodyId;
 			human.bones[i].jointId = nullJointId;
@@ -83,7 +88,7 @@ public static partial class HumanShared
 
 		if ( colorize )
 		{
-			footShapeDef.material.customColor = HexColor.colorSaddleBrown;
+			footShapeDef.material.customColor = (uint)HexColor.colorSaddleBrown;
 		}
 
 		float s = scale;
@@ -100,7 +105,7 @@ public static partial class HumanShared
 
 		// hip
 		{
-			Bone* bone = human.bones + bone_hip;
+			ref Bone bone = ref human.bones[(int)BoneId.bone_hip];
 			bone.parentIndex = -1;
 
 			bodyDef.position = OffsetPos( position, new Vec2( 0.0f, 0.95f * s ) );
@@ -111,7 +116,7 @@ public static partial class HumanShared
 
 			if ( colorize )
 			{
-				shapeDef.material.customColor = pantColor;
+				shapeDef.material.customColor = (uint)pantColor;
 			}
 
 			Capsule capsule = new Capsule { center1 = new( 0.0f, -0.02f * s ), center2 = new( 0.0f, 0.02f * s ), radius = 0.095f * s };
@@ -120,8 +125,8 @@ public static partial class HumanShared
 
 		// torso
 		{
-			Bone* bone = human.bones + bone_torso;
-			bone.parentIndex = bone_hip;
+			ref Bone bone = ref human.bones[(int)BoneId.bone_torso];
+			bone.parentIndex = (int)BoneId.bone_hip;
 
 			bodyDef.position = OffsetPos( position, new Vec2( 0.0f, 1.2f * s ) );
 			bodyDef.linearDamping = 0.0f;
@@ -134,7 +139,7 @@ public static partial class HumanShared
 
 			if ( colorize )
 			{
-				shapeDef.material.customColor = shirtColor;
+				shapeDef.material.customColor = (uint)shirtColor;
 			}
 
 			Capsule capsule = new Capsule { center1 = new( 0.0f, -0.135f * s ), center2 = new( 0.0f, 0.135f * s ), radius = 0.09f * s };
@@ -161,8 +166,8 @@ public static partial class HumanShared
 
 		// head
 		{
-			Bone* bone = human.bones + bone_head;
-			bone.parentIndex = bone_torso;
+			ref Bone bone = ref human.bones[(int)BoneId.bone_head];
+			bone.parentIndex = (int)BoneId.bone_torso;
 
 			bodyDef.position = OffsetPos( position, new Vec2( 0.0f * s, 1.475f * s ) );
 			bodyDef.linearDamping = 0.1f;
@@ -173,7 +178,7 @@ public static partial class HumanShared
 
 			if ( colorize )
 			{
-				shapeDef.material.customColor = skinColor;
+				shapeDef.material.customColor = (uint)skinColor;
 			}
 
 			Capsule capsule = new Capsule { center1 = new( 0.0f, -0.038f * s ), center2 = new( 0.0f, 0.039f * s ), radius = 0.075f * s };
@@ -204,8 +209,8 @@ public static partial class HumanShared
 
 		// upper left leg
 		{
-			Bone* bone = human.bones + bone_upperLeftLeg;
-			bone.parentIndex = bone_hip;
+			ref Bone bone = ref human.bones[(int)BoneId.bone_upperLeftLeg];
+			bone.parentIndex = (int)BoneId.bone_hip;
 
 			bodyDef.position = OffsetPos( position, new Vec2( 0.0f, 0.775f * s ) );
 			bodyDef.linearDamping = 0.0f;
@@ -216,7 +221,7 @@ public static partial class HumanShared
 
 			if ( colorize )
 			{
-				shapeDef.material.customColor = pantColor;
+				shapeDef.material.customColor = (uint)pantColor;
 			}
 
 			Capsule capsule = new Capsule { center1 = new( 0.0f, -0.125f * s ), center2 = new( 0.0f, 0.125f * s ), radius = 0.06f * s };
@@ -251,8 +256,8 @@ public static partial class HumanShared
 
 		// lower left leg
 		{
-			Bone* bone = human.bones + bone_lowerLeftLeg;
-			bone.parentIndex = bone_upperLeftLeg;
+			ref Bone bone = ref human.bones[(int)BoneId.bone_lowerLeftLeg];
+			bone.parentIndex = (int)BoneId.bone_upperLeftLeg;
 
 			bodyDef.position = OffsetPos( position, new Vec2( 0.0f, 0.475f * s ) );
 			bodyDef.linearDamping = 0.0f;
@@ -263,7 +268,7 @@ public static partial class HumanShared
 
 			if ( colorize )
 			{
-				shapeDef.material.customColor = pantColor;
+				shapeDef.material.customColor = (uint)pantColor;
 			}
 
 			Capsule capsule = new Capsule { center1 = new( 0.0f, -0.155f * s ), center2 = new( 0.0f, 0.125f * s ), radius = 0.045f * s };
@@ -298,8 +303,8 @@ public static partial class HumanShared
 
 		// upper right leg
 		{
-			Bone* bone = human.bones + bone_upperRightLeg;
-			bone.parentIndex = bone_hip;
+			ref Bone bone = ref human.bones[(int)BoneId.bone_upperRightLeg];
+			bone.parentIndex = (int)BoneId.bone_hip;
 
 			bodyDef.position = OffsetPos( position, new Vec2( 0.0f, 0.775f * s ) );
 			bodyDef.linearDamping = 0.0f;
@@ -310,7 +315,7 @@ public static partial class HumanShared
 
 			if ( colorize )
 			{
-				shapeDef.material.customColor = pantColor;
+				shapeDef.material.customColor = (uint)pantColor;
 			}
 
 			Capsule capsule = new Capsule { center1 = new( 0.0f, -0.125f * s ), center2 = new( 0.0f, 0.125f * s ), radius = 0.06f * s };
@@ -337,8 +342,8 @@ public static partial class HumanShared
 
 		// lower right leg
 		{
-			Bone* bone = human.bones + bone_lowerRightLeg;
-			bone.parentIndex = bone_upperRightLeg;
+			ref Bone bone = ref human.bones[(int)BoneId.bone_lowerRightLeg];
+			bone.parentIndex = (int)BoneId.bone_upperRightLeg;
 
 			bodyDef.position = OffsetPos( position, new Vec2( 0.0f, 0.475f * s ) );
 			bodyDef.linearDamping = 0.0f;
@@ -349,7 +354,7 @@ public static partial class HumanShared
 
 			if ( colorize )
 			{
-				shapeDef.material.customColor = pantColor;
+				shapeDef.material.customColor = (uint)pantColor;
 			}
 
 			Capsule capsule = new Capsule { center1 = new( 0.0f, -0.155f * s ), center2 = new( 0.0f, 0.125f * s ), radius = 0.045f * s };
@@ -384,8 +389,8 @@ public static partial class HumanShared
 
 		// upper left arm
 		{
-			Bone* bone = human.bones + bone_upperLeftArm;
-			bone.parentIndex = bone_torso;
+			ref Bone bone = ref human.bones[(int)BoneId.bone_upperLeftArm];
+			bone.parentIndex = (int)BoneId.bone_torso;
 			bone.frictionScale = 0.5f;
 
 			bodyDef.position = OffsetPos( position, new Vec2( 0.0f, 1.225f * s ) );
@@ -396,7 +401,7 @@ public static partial class HumanShared
 
 			if ( colorize )
 			{
-				shapeDef.material.customColor = shirtColor;
+				shapeDef.material.customColor = (uint)shirtColor;
 			}
 
 			Capsule capsule = new Capsule { center1 = new( 0.0f, -0.125f * s ), center2 = new( 0.0f, 0.125f * s ), radius = 0.035f * s };
@@ -423,8 +428,8 @@ public static partial class HumanShared
 
 		// lower left arm
 		{
-			Bone* bone = human.bones + bone_lowerLeftArm;
-			bone.parentIndex = bone_upperLeftArm;
+			ref Bone bone = ref human.bones[(int)BoneId.bone_lowerLeftArm];
+			bone.parentIndex = (int)BoneId.bone_upperLeftArm;
 
 			bodyDef.position = OffsetPos( position, new Vec2( 0.0f, 0.975f * s ) );
 			bodyDef.linearDamping = 0.1f;
@@ -435,7 +440,7 @@ public static partial class HumanShared
 
 			if ( colorize )
 			{
-				shapeDef.material.customColor = skinColor;
+				shapeDef.material.customColor = (uint)skinColor;
 			}
 
 			Capsule capsule = new Capsule { center1 = new( 0.0f, -0.125f * s ), center2 = new( 0.0f, 0.125f * s ), radius = 0.03f * s };
@@ -463,8 +468,8 @@ public static partial class HumanShared
 
 		// upper right arm
 		{
-			Bone* bone = human.bones + bone_upperRightArm;
-			bone.parentIndex = bone_torso;
+			ref Bone bone = ref human.bones[(int)BoneId.bone_upperRightArm];
+			bone.parentIndex = (int)BoneId.bone_torso;
 
 			bodyDef.position = OffsetPos( position, new Vec2( 0.0f, 1.225f * s ) );
 			bodyDef.linearDamping = 0.0f;
@@ -475,7 +480,7 @@ public static partial class HumanShared
 
 			if ( colorize )
 			{
-				shapeDef.material.customColor = shirtColor;
+				shapeDef.material.customColor = (uint)shirtColor;
 			}
 
 			Capsule capsule = new Capsule { center1 = new( 0.0f, -0.125f * s ), center2 = new( 0.0f, 0.125f * s ), radius = 0.035f * s };
@@ -502,8 +507,8 @@ public static partial class HumanShared
 
 		// lower right arm
 		{
-			Bone* bone = human.bones + bone_lowerRightArm;
-			bone.parentIndex = bone_upperRightArm;
+			ref Bone bone = ref human.bones[(int)BoneId.bone_lowerRightArm];
+			bone.parentIndex = (int)BoneId.bone_upperRightArm;
 
 			bodyDef.position = OffsetPos( position, new Vec2( 0.0f, 0.975f * s ) );
 			bodyDef.linearDamping = 0.1f;
@@ -514,7 +519,7 @@ public static partial class HumanShared
 
 			if ( colorize )
 			{
-				shapeDef.material.customColor = skinColor;
+				shapeDef.material.customColor = (uint)skinColor;
 			}
 
 			Capsule capsule = new Capsule { center1 = new( 0.0f, -0.125f * s ), center2 = new( 0.0f, 0.125f * s ), radius = 0.03f * s };
@@ -543,11 +548,11 @@ public static partial class HumanShared
 		human.isSpawned = true;
 	}
 
-	internal static void DestroyHuman( ref Human human )
+	public static void DestroyHuman( ref Human human )
 	{
 		assert( human.isSpawned == true );
 
-		for ( int i = 0; i < bone_count; ++i )
+		for ( int i = 0; i < (int)BoneId.bone_count; ++i )
 		{
 			if ( human.bones[i].jointId.IsNull )
 			{
@@ -558,7 +563,7 @@ public static partial class HumanShared
 			human.bones[i].jointId = nullJointId;
 		}
 
-		for ( int i = 0; i < bone_count; ++i )
+		for ( int i = 0; i < (int)BoneId.bone_count; ++i )
 		{
 			if ( human.bones[i].bodyId.IsNull )
 			{
@@ -572,9 +577,9 @@ public static partial class HumanShared
 		human.isSpawned = false;
 	}
 
-	internal static void Human_SetVelocity( ref Human human, Vec2 velocity )
+	public static void Human_SetVelocity( ref Human human, Vec2 velocity )
 	{
-		for ( int i = 0; i < bone_count; ++i )
+		for ( int i = 0; i < (int)BoneId.bone_count; ++i )
 		{
 			BodyId bodyId = human.bones[i].bodyId;
 
@@ -587,26 +592,26 @@ public static partial class HumanShared
 		}
 	}
 
-	internal static void Human_ApplyRandomAngularImpulse( ref Human human, float magnitude )
+	public static void Human_ApplyRandomAngularImpulse( ref Human human, float magnitude )
 	{
 		assert( human.isSpawned == true );
 		float impulse = RandomFloatRange( -magnitude, magnitude );
-		Body_ApplyAngularImpulse( human.bones[bone_torso].bodyId, impulse, true );
+		Body_ApplyAngularImpulse( human.bones[(int)BoneId.bone_torso].bodyId, impulse, true );
 	}
 
-	internal static void Human_SetJointFrictionTorque( ref Human human, float torque )
+	public static void Human_SetJointFrictionTorque( ref Human human, float torque )
 	{
 		assert( human.isSpawned == true );
 		if ( torque == 0.0f )
 		{
-			for ( int i = 1; i < bone_count; ++i )
+			for ( int i = 1; i < (int)BoneId.bone_count; ++i )
 			{
 				RevoluteJoint_EnableMotor( human.bones[i].jointId, false );
 			}
 		}
 		else
 		{
-			for ( int i = 1; i < bone_count; ++i )
+			for ( int i = 1; i < (int)BoneId.bone_count; ++i )
 			{
 				RevoluteJoint_EnableMotor( human.bones[i].jointId, true );
 				float scale = human.scale * human.bones[i].frictionScale;
@@ -615,19 +620,19 @@ public static partial class HumanShared
 		}
 	}
 
-	internal static void Human_SetJointSpringHertz( ref Human human, float hertz )
+	public static void Human_SetJointSpringHertz( ref Human human, float hertz )
 	{
 		assert( human.isSpawned == true );
 		if ( hertz == 0.0f )
 		{
-			for ( int i = 1; i < bone_count; ++i )
+			for ( int i = 1; i < (int)BoneId.bone_count; ++i )
 			{
 				RevoluteJoint_EnableSpring( human.bones[i].jointId, false );
 			}
 		}
 		else
 		{
-			for ( int i = 1; i < bone_count; ++i )
+			for ( int i = 1; i < (int)BoneId.bone_count; ++i )
 			{
 				RevoluteJoint_EnableSpring( human.bones[i].jointId, true );
 				RevoluteJoint_SetSpringHertz( human.bones[i].jointId, hertz );
@@ -635,29 +640,29 @@ public static partial class HumanShared
 		}
 	}
 
-	internal static void Human_SetJointDampingRatio( ref Human human, float dampingRatio )
+	public static void Human_SetJointDampingRatio( ref Human human, float dampingRatio )
 	{
 		assert( human.isSpawned == true );
-		for ( int i = 1; i < bone_count; ++i )
+		for ( int i = 1; i < (int)BoneId.bone_count; ++i )
 		{
 			RevoluteJoint_SetSpringDampingRatio( human.bones[i].jointId, dampingRatio );
 		}
 	}
 
-	internal static void Human_EnableSensorEvents( ref Human human, bool enable )
+	public static void Human_EnableSensorEvents( ref Human human, bool enable )
 	{
 		assert( human.isSpawned == true );
-		BodyId bodyId = human.bones[bone_torso].bodyId;
+		BodyId bodyId = human.bones[(int)BoneId.bone_torso].bodyId;
 
 		ShapeId shapeId = default;
-		int count = Body_GetShapes( bodyId, shapeId, 1 );
+		int count = Body_GetShapes( bodyId, new Span<ShapeId>( ref shapeId ), 1 );
 		if ( count == 1 )
 		{
 			Shape_EnableSensorEvents( shapeId, enable );
 		}
 	}
 
-	internal static void Human_SetScale( ref Human human, float scale )
+	public static void Human_SetScale( ref Human human, float scale )
 	{
 		assert( human.isSpawned == true );
 		assert( 0.01f < scale && scale < 100.0f );
@@ -672,9 +677,9 @@ public static partial class HumanShared
 
 		Pos origin = Body_GetPosition( human.bones[0].bodyId );
 
-		for ( int boneIndex = 0; boneIndex < bone_count; ++boneIndex )
+		for ( int boneIndex = 0; boneIndex < (int)BoneId.bone_count; ++boneIndex )
 		{
-			Bone* bone = human.bones + boneIndex;
+			ref Bone bone = ref human.bones[boneIndex];
 
 			if ( boneIndex > 0 )
 			{

@@ -173,12 +173,15 @@ legacy/                      旧的 v2 代码（git mv 过来保存，不参与�
 | P4 求解器 | 完成。只移植了 4 宽 SIMD 求解器（`Vector128`，SSE2 语义），8 宽 AVX2 版本未移植；两者结果完全一致 |
 | P5 关节 | 完成 |
 | P6 验证 | 大部分完成。见下 |
-| P7 Testbed | 完成第一版：Pyramid、Card House、Bridge、Car、Falling Hinges、Shape Rain 六个示例 |
+| P7 Testbed | 完成。移植了上游全部 145 个 sample（不含 Replay，以及依赖 snapshot 的 Rollback），框架对应 `sample.h`/`draw.h`/`main.cpp` |
 
-**测试**：`dotnet test` 全部通过，包括上游的 collision、distance、math、shape、bitset、mover、world 测试，以及 HelloWorld。
+**测试**：`dotnet test` 全部通过，包括上游的 collision、distance、math、shape、bitset、mover、world（含依赖 junkyard benchmark 的 TestSetWorkerCount）测试，以及 HelloWorld。测试类之间不能并行（世界注册表是全局的，和上游一样单线程跑测试），由 `xunit.runner.json` 关闭。
+**shared**：上游 `shared/` 移植为 `shared/Box2DNet.Shared`（benchmarks、human、determinism、utils），测试和 Testbed 共用。
+**Samples**：用 `tools/c2cs/cpp2cs.py` 把 C++ sample 机械转换后手工修正（`tools/c2cs/patches/samples_*.py` 记录了手工修正）。`Testbed --smoke` 逐个运行全部 sample，目前全部通过。移植 sample 时发现并修复了库里 `World_OverlapShape` 的 bug（ref 字段没有用 ref 赋值），并加了回归测试。
 **确定性验收通过**：FallingHinges 在 worker 数 0～32、内置调度器、跨平台变体下都得到 `sleepStep = 299`、`hash = 0x465F3DF4`，和 C 版逐位一致。
 
 **尚未完成**：
-- 还没移植的测试（在 `tools/c2cs/pending/`）：dynamic_tree、invalid_input、thread、sort、id、restitution、chain、large_world，以及 `shared/benchmarks.c`、`shared/human.c`。
+- 还没移植的测试（在 `tools/c2cs/pending/`）：dynamic_tree、invalid_input、thread、sort、id、restitution、chain、large_world。
+- Samples：Replay（依赖 recording）和 Rollback（依赖 snapshot）。
 - Recording/Replay/Snapshot、双精度模式、8 宽 AVX2 求解器、性能 benchmark。
 - `World_GetStateHash` 依赖 snapshot.c，测试里暂时用刚体变换的哈希代替。

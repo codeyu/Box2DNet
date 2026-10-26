@@ -2365,7 +2365,7 @@ public static partial class B2
 		public World world;
 		public OverlapResultCallbackFcn? fcn;
 		public QueryFilter filter;
-		public ref ShapeProxy proxy;
+		public ref readonly ShapeProxy proxy;
 		public Pos origin;
 		public object? userContext;
 	}
@@ -2419,7 +2419,7 @@ public static partial class B2
 
 		// Relative box lifted to world float with outward rounding, conservative for the tree
 		AABB aabb = OffsetAABB( MakeAABB( proxy.points, proxy.count, proxy.radius ), origin );
-		WorldOverlapContext worldContext = new WorldOverlapContext { world = world, fcn = fcn, filter = filter, proxy = proxy, origin = origin, userContext = context };
+		WorldOverlapContext worldContext = new WorldOverlapContext { world = world, fcn = fcn, filter = filter, proxy = ref proxy, origin = origin, userContext = context };
 
 		for ( int i = 0; i < (int)BodyType.bodyTypeCount; ++i )
 		{
@@ -2844,7 +2844,7 @@ public static partial class B2
 		world.customFilterContext = context;
 	}
 
-	public static void World_SetPreSolveCallback( WorldId worldId, PreSolveCallbackFcn preSolveFcn, PreContinuousCallbackFcn preContinuousFcn, object? context )
+	public static void World_SetPreSolveCallback( WorldId worldId, PreSolveCallbackFcn? preSolveFcn, PreContinuousCallbackFcn? preContinuousFcn, object? context )
 	{
 		World world = GetWorldFromId( worldId );
 

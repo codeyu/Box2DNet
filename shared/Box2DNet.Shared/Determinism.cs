@@ -6,12 +6,11 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using static Box2DNet.B2;
-using static Box2DNet.Tests.TestMacros;
 
-namespace Box2DNet.Tests;
+namespace Box2DNet.Shared;
 
 // From shared/determinism.h
-internal struct FallingHingeData
+public struct FallingHingeData
 {
 	public BodyId[] bodyIds;
 	public int bodyCount;
@@ -20,15 +19,14 @@ internal struct FallingHingeData
 	public uint hash;
 }
 
-public static partial class DeterminismShared
+public static partial class SharedLib
 {
 	// These match shared/determinism.h for single precision
-	internal const int EXPECTED_SLEEP_STEP = 299;
-	internal const uint EXPECTED_HASH = 0x465F3DF4;
+	public const int EXPECTED_SLEEP_STEP = 299;
+	public const uint EXPECTED_HASH = 0x465F3DF4;
 
-	private static void assert( bool condition ) => ENSURE( condition );
 
-	internal static FallingHingeData CreateFallingHinges( WorldId worldId )
+	public static FallingHingeData CreateFallingHinges( WorldId worldId )
 	{
 		{
 			BodyDef bodyDef = DefaultBodyDef();
@@ -120,7 +118,7 @@ public static partial class DeterminismShared
 		return data;
 	}
 
-	internal static bool UpdateFallingHinges( WorldId worldId, ref FallingHingeData data )
+	public static bool UpdateFallingHinges( WorldId worldId, ref FallingHingeData data )
 	{
 		if ( data.hash == 0 )
 		{
@@ -146,10 +144,9 @@ public static partial class DeterminismShared
 		return data.hash != 0;
 	}
 
-	internal static void DestroyFallingHinges( ref FallingHingeData data )
+	public static void DestroyFallingHinges( ref FallingHingeData data )
 	{
 		data.bodyIds = null!;
-		data.bodyIds = null;
 	}
 
 }

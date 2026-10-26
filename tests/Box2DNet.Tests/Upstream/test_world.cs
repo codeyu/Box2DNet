@@ -6,6 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using static Box2DNet.B2;
+using static Box2DNet.Shared.SharedLib;
 using static Box2DNet.Tests.TestMacros;
 
 
@@ -391,6 +392,47 @@ public static partial class WorldTests
 		return 0;
 	}
 
+
+	private static int TestSetWorkerCount()
+	{
+		WorldDef worldDef = DefaultWorldDef();
+		worldDef.workerCount = 1;
+		WorldId worldId = CreateWorld( worldDef );
+		ENSURE( World_IsValid( worldId ) );
+		ENSURE( World_GetWorkerCount( worldId ) == 1 );
+
+		CreateJunkyard( worldId );
+		StepJunkyard( worldId, 1 );
+
+		World_SetWorkerCount( worldId, 4 );
+		ENSURE( World_GetWorkerCount( worldId ) == 4 );
+
+		StepJunkyard( worldId, 2 );
+
+		World_SetWorkerCount( worldId, 4 );
+		ENSURE( World_GetWorkerCount( worldId ) == 4 );
+
+		StepJunkyard( worldId, 3 );
+
+		World_SetWorkerCount( worldId, 0 );
+		ENSURE( World_GetWorkerCount( worldId ) == 1 );
+
+		StepJunkyard( worldId, 4 );
+
+		World_SetWorkerCount( worldId, -5 );
+		ENSURE( World_GetWorkerCount( worldId ) == 1 );
+
+		StepJunkyard( worldId, 5 );
+
+		World_SetWorkerCount( worldId, MaxWorkers + 10 );
+		ENSURE( World_GetWorkerCount( worldId ) == MaxWorkers );
+
+		StepJunkyard( worldId, 2 );
+
+		DestroyWorld( worldId );
+
+		return 0;
+	}
 
 	private static int ChainSegmentShapeTest()
 	{
@@ -1722,7 +1764,7 @@ public static partial class WorldTests
 		RUN_SUBTEST( TestWorldRecycle );
 		RUN_SUBTEST( TestWorldCoverage );
 		RUN_SUBTEST( TestSensor );
-		// TestSetWorkerCount needs the junkyard benchmark from shared/benchmarks.c, not ported yet
+		RUN_SUBTEST( TestSetWorkerCount );
 		RUN_SUBTEST( ChainSegmentShapeTest );
 		RUN_SUBTEST( SetBulletDriftTest );
 		RUN_SUBTEST( DeferredMassFlagSyncTest );

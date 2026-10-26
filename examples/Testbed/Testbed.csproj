@@ -3,11 +3,14 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
+    <!-- converted code: nullable annotations only, like the library -->
+    <Nullable>annotations</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <!-- the ImGui and GLFW bindings use pointers -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RootNamespace>Box2DNet.Testbed</RootNamespace>
+    <!-- the samples are converted from C++ and keep its shape -->
+    <NoWarn>$(NoWarn);CS9191;CS0219;CS0168;CS0414;CS0649;CS0169;CS0162</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Box2DNet\Box2DNet.csproj" />
+    <ProjectReference Include="..\..\shared\Box2DNet.Shared\Box2DNet.Shared.csproj" />
   </ItemGroup>
 
 </Project>

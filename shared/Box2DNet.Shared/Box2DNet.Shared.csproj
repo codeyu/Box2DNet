@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Port of upstream shared/: scenes and helpers used by the samples, the tests and benchmarks -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>Box2DNet.Shared</RootNamespace>
+    <!-- converted code mirrors C -->
+    <NoWarn>$(NoWarn);CS9191</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Box2DNet\Box2DNet.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -11,12 +11,19 @@
     <NoWarn>$(NoWarn);CS9191;CS0219;CS0168</NoWarn>
   </PropertyGroup>
 
+  <!-- Creating and destroying worlds is not thread safe (the world registry is global) and the upstream
+       tests run one at a time, so test classes must not run in parallel. -->
+  <ItemGroup>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="xunit.v3" Version="4.0.2" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Box2DNet\Box2DNet.csproj" />
+    <ProjectReference Include="..\..\shared\Box2DNet.Shared\Box2DNet.Shared.csproj" />
   </ItemGroup>
 
 </Project>

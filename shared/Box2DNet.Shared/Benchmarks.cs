@@ -6,34 +6,33 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using static Box2DNet.B2;
-using static Box2DNet.Tests.TestMacros;
-using static Box2DNet.Tests.HumanShared;
 
-namespace Box2DNet.Tests;
 
-public static partial class Benchmarks
+namespace Box2DNet.Shared;
+
+public static partial class SharedLib
 {
-#if NDEBUG
-	private const int BENCHMARK_DEBUG = 0;
+#if DEBUG
+	private const bool BENCHMARK_DEBUG = true;
 #else
-	private const int BENCHMARK_DEBUG = 1;
+	private const bool BENCHMARK_DEBUG = false;
 #endif
 
-	internal static Capacity GetJointGridCapacity()
+	public static Capacity GetJointGridCapacity()
 	{
 		Capacity c = new Capacity { staticShapeCount = 7, dynamicShapeCount = BENCHMARK_DEBUG ? 440 : 11000, staticBodyCount = 7, dynamicBodyCount = BENCHMARK_DEBUG ? 440 : 11000, arenaByteCount = ( BENCHMARK_DEBUG ? 34 : 120 ) * 1024 };
 
 		return c;
 	}
 
-	internal static void CreateJointGrid( WorldId worldId )
+	public static void CreateJointGrid( WorldId worldId )
 	{
 		World_EnableSleeping( worldId, false );
 
 		int N = BENCHMARK_DEBUG ? 20 : 100;
 
 		// Allocate to avoid huge stack usage
-		Span<BodyId> bodies = malloc( N * N * Unsafe.SizeOf<BodyId>() );
+		BodyId[] bodies = new BodyId[N * N];
 		int index = 0;
 
 		ShapeDef shapeDef = DefaultShapeDef();
@@ -92,17 +91,16 @@ public static partial class Benchmarks
 			}
 		}
 
-		free( bodies );
 	}
 
-	internal static Capacity GetLargePyramidCapacity()
+	public static Capacity GetLargePyramidCapacity()
 	{
 		Capacity c = new Capacity { staticShapeCount = 1, dynamicShapeCount = BENCHMARK_DEBUG ? 240 : 5600, staticBodyCount = 1, dynamicBodyCount = BENCHMARK_DEBUG ? 240 : 5600, contactCount = BENCHMARK_DEBUG ? 740 : 19000, arenaByteCount = ( BENCHMARK_DEBUG ? 130 : 2800 ) * 1024 };
 
 		return c;
 	}
 
-	internal static void CreateLargePyramid( WorldId worldId )
+	public static void CreateLargePyramid( WorldId worldId )
 	{
 		World_EnableSleeping( worldId, false );
 
@@ -170,14 +168,14 @@ public static partial class Benchmarks
 		}
 	}
 
-	internal static Capacity GetManyPyramidsCapacity()
+	public static Capacity GetManyPyramidsCapacity()
 	{
 		Capacity c = new Capacity { staticShapeCount = BENCHMARK_DEBUG ? 5 : 22, dynamicShapeCount = BENCHMARK_DEBUG ? 1600 : 25000, staticBodyCount = 1, dynamicBodyCount = BENCHMARK_DEBUG ? 1600 : 25000, contactCount = BENCHMARK_DEBUG ? 4600 : 73000, arenaByteCount = ( BENCHMARK_DEBUG ? 700 : 11000 ) * 1024 };
 
 		return c;
 	}
 
-	internal static void CreateManyPyramids( WorldId worldId )
+	public static void CreateManyPyramids( WorldId worldId )
 	{
 		World_EnableSleeping( worldId, false );
 
@@ -217,30 +215,30 @@ public static partial class Benchmarks
 		}
 	}
 
-#if NDEBUG
-	enum RainConstants
-	{
-		RAIN_ROW_COUNT = 5,
-		RAIN_COLUMN_COUNT = 40,
-		RAIN_GROUP_SIZE = 5,
-	};
+#if DEBUG
+	private const int RAIN_ROW_COUNT = 3;
+	private const int RAIN_COLUMN_COUNT = 10;
+	private const int RAIN_GROUP_SIZE = 2;
 #else
-	enum RainConstants
-	{
-		RAIN_ROW_COUNT = 3,
-		RAIN_COLUMN_COUNT = 10,
-		RAIN_GROUP_SIZE = 2,
-	};
+	private const int RAIN_ROW_COUNT = 5;
+	private const int RAIN_COLUMN_COUNT = 40;
+	private const int RAIN_GROUP_SIZE = 5;
 #endif
 
-	internal struct Group
+	[InlineArray( RAIN_GROUP_SIZE )]
+	public struct HumanGroupArray
 	{
-		public /*TODO fixed RAIN_GROUP_SIZE*/ Human[] humans;
+		private Human _element0;
 	}
 
-	internal struct RainData
+	public struct Group
 	{
-		public /*TODO fixed RAIN_ROW_COUNT * RAIN_COLUMN_COUNT*/ Group[] groups;
+		public HumanGroupArray humans;
+	}
+
+	public struct RainData
+	{
+		public Group[] groups;
 		public float gridSize;
 		public int gridCount;
 		public int columnCount;
@@ -249,16 +247,17 @@ public static partial class Benchmarks
 
 	private static RainData g_rainData;
 
-	internal static Capacity GetRainCapacity()
+	public static Capacity GetRainCapacity()
 	{
 		Capacity c = new Capacity { staticShapeCount = BENCHMARK_DEBUG ? 670 : 2800, dynamicShapeCount = BENCHMARK_DEBUG ? 860 : 15000, staticBodyCount = 1, dynamicBodyCount = BENCHMARK_DEBUG ? 730 : 13000, contactCount = BENCHMARK_DEBUG ? 1600 : 29000, arenaByteCount = ( BENCHMARK_DEBUG ? 150 : 1900 ) * 1024 };
 
 		return c;
 	}
 
-	internal static void CreateRain( WorldId worldId )
+	public static void CreateRain( WorldId worldId )
 	{
 		g_rainData = default;
+		g_rainData.groups = new Group[RAIN_ROW_COUNT * RAIN_COLUMN_COUNT];
 
 		g_rainData.gridSize = 0.5f;
 		g_rainData.gridCount = BENCHMARK_DEBUG ? 200 : 500;
@@ -294,7 +293,7 @@ public static partial class Benchmarks
 		g_rainData.columnIndex = 0;
 	}
 
-	internal static void CreateGroup( WorldId worldId, int rowIndex, int columnIndex )
+	public static void CreateGroup( WorldId worldId, int rowIndex, int columnIndex )
 	{
 		assert( rowIndex < RAIN_ROW_COUNT && columnIndex < RAIN_COLUMN_COUNT );
 
@@ -314,13 +313,12 @@ public static partial class Benchmarks
 
 		for ( int i = 0; i < RAIN_GROUP_SIZE; ++i )
 		{
-			Human* human = g_rainData.groups[groupIndex].humans + i;
-			CreateHuman( ref human, worldId, position, scale, jointFriction, jointHertz, jointDamping, i + 1, null, false );
+			CreateHuman( ref g_rainData.groups[groupIndex].humans[i], worldId, position, scale, jointFriction, jointHertz, jointDamping, i + 1, null, false );
 			position.x += 0.5f;
 		}
 	}
 
-	internal static void DestroyGroup( int rowIndex, int columnIndex )
+	public static void DestroyGroup( int rowIndex, int columnIndex )
 	{
 		assert( rowIndex < RAIN_ROW_COUNT && columnIndex < RAIN_COLUMN_COUNT );
 
@@ -328,11 +326,11 @@ public static partial class Benchmarks
 
 		for ( int i = 0; i < RAIN_GROUP_SIZE; ++i )
 		{
-			DestroyHuman( g_rainData.groups[groupIndex].humans + i );
+			DestroyHuman( ref g_rainData.groups[groupIndex].humans[i] );
 		}
 	}
 
-	internal static float StepRain( WorldId worldId, int stepCount )
+	public static float StepRain( WorldId worldId, int stepCount )
 	{
 		int delay = BENCHMARK_DEBUG ? 0x1F : 0x7;
 
@@ -363,28 +361,28 @@ public static partial class Benchmarks
 	}
 
 	private const int SPINNER_POINT_COUNT = 360;
-	internal struct SpinnerData
+	public struct SpinnerData
 	{
 		public JointId spinnerId;
 	}
 
 	private static SpinnerData g_spinnerData;
 
-	internal static Capacity GetSpinnerCapacity()
+	public static Capacity GetSpinnerCapacity()
 	{
 		Capacity c = new Capacity { staticShapeCount = 400, dynamicShapeCount = BENCHMARK_DEBUG ? 550 : 6700, staticBodyCount = 1, dynamicBodyCount = BENCHMARK_DEBUG ? 550 : 6700, contactCount = BENCHMARK_DEBUG ? 2700 : 41000, arenaByteCount = ( BENCHMARK_DEBUG ? 360 : 4600 ) * 1024 };
 
 		return c;
 	}
 
-	internal static void CreateSpinner( WorldId worldId )
+	public static void CreateSpinner( WorldId worldId )
 	{
 		BodyId groundId = default;
 		{
 			BodyDef bodyDefInner = DefaultBodyDef();
 			groundId = CreateBody( worldId, ref bodyDefInner );
 
-			Span<Vec2> points = stackalloc Vec2[SPINNER_POINT_COUNT];
+			Vec2[] points = new Vec2[SPINNER_POINT_COUNT];
 
 			Rot q = MakeRot( -2.0f * Pi / SPINNER_POINT_COUNT );
 			Vec2 p = new Vec2( 40.0f, 0.0f );
@@ -401,7 +399,7 @@ public static partial class Benchmarks
 			chainDef.points = points;
 			chainDef.pointCount = SPINNER_POINT_COUNT;
 			chainDef.isLoop = true;
-			chainDef.materials = &material;
+			chainDef.materials = [material];
 			chainDef.materialCount = 1;
 
 			CreateChain( groundId, ref chainDef );
@@ -410,7 +408,7 @@ public static partial class Benchmarks
 		{
 			BodyDef bodyDefInner = DefaultBodyDef();
 			bodyDefInner.type = BodyType.dynamicBody;
-			bodyDefInner.position = new Pos { x = 0.0, y = 12.0f };
+			bodyDefInner.position = new Pos { x = 0.0f, y = 12.0f };
 			bodyDefInner.enableSleep = false;
 
 			BodyId spinnerId = CreateBody( worldId, ref bodyDefInner );
@@ -422,7 +420,7 @@ public static partial class Benchmarks
 
 			float motorSpeed = 5.0f;
 			// float maxMotorTorque = 100.0f * 40000.0f;
-			float maxMotorTorque = FLT_MAX;
+			float maxMotorTorque = float.MaxValue;
 			RevoluteJointDef jointDef = DefaultRevoluteJointDef();
 			jointDef.@base.bodyIdA = groundId;
 			jointDef.@base.bodyIdB = spinnerId;
@@ -477,22 +475,20 @@ public static partial class Benchmarks
 		}
 	}
 
-	internal static float StepSpinner( WorldId worldId, int stepCount )
+	public static float StepSpinner( WorldId worldId, int stepCount )
 	{
-		worldId;
-		stepCount;
 
 		return RevoluteJoint_GetCurrentAngle( g_spinnerData.spinnerId );
 	}
 
-	internal static Capacity GetSmashCapacity()
+	public static Capacity GetSmashCapacity()
 	{
 		Capacity c = new Capacity { dynamicShapeCount = BENCHMARK_DEBUG ? 230 : 11000, dynamicBodyCount = BENCHMARK_DEBUG ? 230 : 11000, contactCount = BENCHMARK_DEBUG ? 2300 : 55000, arenaByteCount = ( BENCHMARK_DEBUG ? 280 : 4900 ) * 1024 };
 
 		return c;
 	}
 
-	internal static void CreateSmash( WorldId worldId )
+	public static void CreateSmash( WorldId worldId )
 	{
 		World_SetGravity( worldId, Vec2_zero );
 
@@ -534,14 +530,14 @@ public static partial class Benchmarks
 		}
 	}
 
-	internal static Capacity GetTumblerCapacity()
+	public static Capacity GetTumblerCapacity()
 	{
 		Capacity c = new Capacity { dynamicShapeCount = BENCHMARK_DEBUG ? 450 : 2300, staticBodyCount = 1, dynamicBodyCount = BENCHMARK_DEBUG ? 450 : 2300, contactCount = BENCHMARK_DEBUG ? 2400 : 13000, arenaByteCount = ( BENCHMARK_DEBUG ? 220 : 1100 ) * 1024 };
 
 		return c;
 	}
 
-	internal static void CreateTumbler( WorldId worldId )
+	public static void CreateTumbler( WorldId worldId )
 	{
 		BodyId groundId = default;
 		{
@@ -608,14 +604,14 @@ public static partial class Benchmarks
 		}
 	}
 
-	internal static Capacity GetWasherCapacity()
+	public static Capacity GetWasherCapacity()
 	{
 		Capacity c = new Capacity { dynamicShapeCount = BENCHMARK_DEBUG ? 440 : 9000, staticBodyCount = 1, dynamicBodyCount = BENCHMARK_DEBUG ? 450 : 9000, contactCount = BENCHMARK_DEBUG ? 2300 : 52000, arenaByteCount = ( BENCHMARK_DEBUG ? 300 : 6000 ) * 1024 };
 
 		return c;
 	}
 
-	internal static void CreateWasher( WorldId worldId )
+	public static void CreateWasher( WorldId worldId )
 	{
 		bool kinematic = true;
 
@@ -651,8 +647,8 @@ public static partial class Benchmarks
 			float r2 = 18.0f;
 
 			float angle = Pi / 18.0f;
-			Rot q = new Rot( cosf( angle ), sinf( angle ) );
-			Rot qo = new Rot( cosf( 0.1f * angle ), sinf( 0.1f * angle ) );
+			Rot q = new Rot( MathF.Cos( angle ), MathF.Sin( angle ) );
+			Rot qo = new Rot( MathF.Cos( 0.1f * angle ), MathF.Sin( 0.1f * angle ) );
 			Vec2 u1 = new Vec2( 1.0f, 0.0f );
 			for ( int i = 0; i < 36; ++i )
 			{
@@ -742,21 +738,21 @@ public static partial class Benchmarks
 		}
 	}
 
-	internal struct JunkyardData
+	public struct JunkyardData
 	{
 		public BodyId pusherId;
 	}
 
 	static JunkyardData g_junkyardData;
 
-	internal static Capacity GetJunkyardCapacity()
+	public static Capacity GetJunkyardCapacity()
 	{
 		Capacity c = new Capacity { staticShapeCount = 290, dynamicShapeCount = BENCHMARK_DEBUG ? 440 : 8800, staticBodyCount = 1, dynamicBodyCount = BENCHMARK_DEBUG ? 450 : 8900, contactCount = BENCHMARK_DEBUG ? 1500 : 38000, arenaByteCount = ( BENCHMARK_DEBUG ? 170 : 3700 ) * 1024 };
 
 		return c;
 	}
 
-	internal static void CreateJunkyard( WorldId worldId )
+	public static void CreateJunkyard( WorldId worldId )
 	{
 		{
 			float gridSize = 1.0f;
@@ -846,7 +842,7 @@ public static partial class Benchmarks
 		CreatePolygonShape( g_junkyardData.pusherId, ref shapeDef, ref box );
 	}
 
-	internal static float StepJunkyard( WorldId worldId, int stepCount )
+	public static float StepJunkyard( WorldId worldId, int stepCount )
 	{
 		float timeStep = 1.0f / 60.0f;
 		float time = timeStep * stepCount;
@@ -857,7 +853,7 @@ public static partial class Benchmarks
 	}
 
 	private const int SLEEP_PYRAMID_COUNT = 10;
-	internal struct SleepData
+	public struct SleepData
 	{
 		public BodyId[] bodyIdA;
 		public BodyId[] bodyIdB;
@@ -901,7 +897,7 @@ public static partial class Benchmarks
 		}
 	}
 
-	internal static Capacity GetSleepCapacity()
+	public static Capacity GetSleepCapacity()
 	{
 		Capacity c = new Capacity { staticShapeCount = 1, dynamicShapeCount = BENCHMARK_DEBUG ? 400 : 21000, staticBodyCount = 1, dynamicBodyCount = BENCHMARK_DEBUG ? 400 : 21000, contactCount = BENCHMARK_DEBUG ? 1200 : 68000, arenaByteCount = ( BENCHMARK_DEBUG ? 190 : 10000 ) * 1024 };
 
@@ -909,9 +905,9 @@ public static partial class Benchmarks
 	}
 
 	// Stress tests waking and sleeping.
-	internal static void CreateSleep( WorldId worldId )
+	public static void CreateSleep( WorldId worldId )
 	{
-		g_sleepData = default(SleepData);
+		g_sleepData = new SleepData { bodyIdA = new BodyId[SLEEP_PYRAMID_COUNT], bodyIdB = new BodyId[SLEEP_PYRAMID_COUNT] };
 
 		int baseCount = BENCHMARK_DEBUG ? 8 : 60;
 		float extent = 0.5f;
@@ -933,11 +929,11 @@ public static partial class Benchmarks
 		for ( int i = 0; i < SLEEP_PYRAMID_COUNT; ++i )
 		{
 			float centerX = -0.5f * span + i * pitch - 0.5f * baseWidth;
-			CreateSleepPyramid( worldId, baseCount, extent, centerX, g_sleepData.bodyIdA + i, g_sleepData.bodyIdB + i );
+			CreateSleepPyramid( worldId, baseCount, extent, centerX, ref g_sleepData.bodyIdA[i], ref g_sleepData.bodyIdB[i] );
 		}
 	}
 
-	internal static float StepSleep( WorldId worldId, int stepCount )
+	public static float StepSleep( WorldId worldId, int stepCount )
 	{
 		for ( int i = 0; i < SLEEP_PYRAMID_COUNT; ++i )
 		{
@@ -960,7 +956,7 @@ public static partial class Benchmarks
 		return 0.0f;
 	}
 
-	internal static Capacity GetCompoundsCapacity()
+	public static Capacity GetCompoundsCapacity()
 	{
 		Capacity c = new Capacity { staticShapeCount = 310, dynamicShapeCount = BENCHMARK_DEBUG ? 880 : 6600, staticBodyCount = 1, dynamicBodyCount = BENCHMARK_DEBUG ? 440 : 3300, contactCount = BENCHMARK_DEBUG ? 4400 : 37000, arenaByteCount = ( BENCHMARK_DEBUG ? 370 : 2900 ) * 1024 };
 
@@ -968,7 +964,7 @@ public static partial class Benchmarks
 	}
 
 	// Each dynamic body is a compound of two triangular polygon shapes.
-	internal static void CreateCompounds( WorldId worldId )
+	public static void CreateCompounds( WorldId worldId )
 	{
 		{
 			float gridSize = 1.0f;
@@ -1059,12 +1055,12 @@ public static partial class Benchmarks
 	// overlaps, once with the default filter and once with a mask that hits one category in three.
 	// The queries are precomputed so only the tree work lands in the step time.
 
-	// #define QUERY_COUNT ( BENCHMARK_DEBUG ? 100 : 1000 )
+	private const int QUERY_COUNT = BENCHMARK_DEBUG ? 100 : 1000;
 
-	internal struct QueryBenchmark
+	public struct QueryBenchmark
 	{
-		public /*TODO fixed 1000*/ Pos[] origins;
-		public /*TODO fixed 1000*/ Vec2[] translations;
+		public Pos[] origins;
+		public Vec2[] translations;
 		public BodyId paddleId;
 		public TreeStats stats;
 		public float extent;
@@ -1083,15 +1079,17 @@ public static partial class Benchmarks
 		return lower + ( upper - lower ) * unit;
 	}
 
-	internal static Capacity GetQueriesCapacity()
+	public static Capacity GetQueriesCapacity()
 	{
 		Capacity c = new Capacity { staticShapeCount = BENCHMARK_DEBUG ? 670 : 28000, dynamicShapeCount = BENCHMARK_DEBUG ? 550 : 2200, staticBodyCount = BENCHMARK_DEBUG ? 670 : 28000, dynamicBodyCount = BENCHMARK_DEBUG ? 560 : 2300, contactCount = BENCHMARK_DEBUG ? 2400 : 9800, arenaByteCount = ( BENCHMARK_DEBUG ? 270 : 930 ) * 1024 };
 
 		return c;
 	}
 
-	internal static void CreateQueries( WorldId worldId )
+	public static void CreateQueries( WorldId worldId )
 	{
+		g_queryBenchmark.origins = new Pos[QUERY_COUNT];
+		g_queryBenchmark.translations = new Vec2[QUERY_COUNT];
 		g_queryRandomState = 1234;
 
 		float extent = BENCHMARK_DEBUG ? 100.0f : 500.0f;
@@ -1211,25 +1209,20 @@ public static partial class Benchmarks
 
 	private static float QueryCastClosest( ShapeId shapeId, Pos point, Vec2 normal, float fraction, object? context )
 	{
-		shapeId;
-		point;
-		normal;
-		*(float*)context = fraction;
+		( (StrongBox<float>)context! ).Value = fraction;
 		return fraction;
 	}
 
 	private static bool QueryOverlapCount( ShapeId shapeId, object? context )
 	{
-		shapeId;
-		*(int*)context += 1;
+		( (StrongBox<int>)context! ).Value += 1;
 		return true;
 	}
 
-	internal static float StepQueries( WorldId worldId, int stepCount )
+	public static float StepQueries( WorldId worldId, int stepCount )
 	{
-		stepCount;
 
-		QueryBenchmark* data = &g_queryBenchmark;
+		ref QueryBenchmark data = ref g_queryBenchmark;
 
 		// Reverse the paddle at the ends of its sweep
 		Pos paddlePosition = Body_GetPosition( data.paddleId );
@@ -1266,23 +1259,23 @@ public static partial class Benchmarks
 
 			for ( int i = 0; i < queryCount; ++i )
 			{
-				float fraction = 1.0f;
-				TreeStats castStats = World_CastShape( worldId, data.origins[i], ref circle, data.translations[i], filter,
-														   QueryCastClosest, ref fraction );
+				StrongBox<float> fraction = new( 1.0f );
+				TreeStats castStats = World_CastShape( worldId, data.origins[i], circle, data.translations[i], filter,
+														   QueryCastClosest, fraction );
 				stats.nodeVisits += castStats.nodeVisits;
 				stats.leafVisits += castStats.leafVisits;
-				hitCount += fraction < 1.0f ? 1 : 0;
+				hitCount += fraction.Value < 1.0f ? 1 : 0;
 			}
 
 			for ( int i = 0; i < queryCount; ++i )
 			{
-				int overlapCount = 0;
+				StrongBox<int> overlapCount = new( 0 );
 				AABB aabb = new AABB { lowerBound = new( -5.0f, -5.0f ), upperBound = new( 5.0f, 5.0f ) };
 				TreeStats overlapStats =
-					World_OverlapAABB( worldId, data.origins[i], aabb, filter, QueryOverlapCount, ref overlapCount );
+					World_OverlapAABB( worldId, data.origins[i], aabb, filter, QueryOverlapCount, overlapCount );
 				stats.nodeVisits += overlapStats.nodeVisits;
 				stats.leafVisits += overlapStats.leafVisits;
-				hitCount += overlapCount;
+				hitCount += overlapCount.Value;
 			}
 		}
 
@@ -1292,22 +1285,22 @@ public static partial class Benchmarks
 		return (float)hitCount;
 	}
 
-	internal static TreeStats GetQueryBenchmarkStats()
+	public static TreeStats GetQueryBenchmarkStats()
 	{
 		return g_queryBenchmark.stats;
 	}
 
-	internal static int GetQueryBenchmarkCount()
+	public static int GetQueryBenchmarkCount()
 	{
 		return QUERY_COUNT;
 	}
 
-	internal static float GetQueryBenchmarkExtent()
+	public static float GetQueryBenchmarkExtent()
 	{
 		return g_queryBenchmark.extent;
 	}
 
-	internal static void GetQueryBenchmarkRay( int index, ref Pos origin, ref Vec2 translation )
+	public static void GetQueryBenchmarkRay( int index, ref Pos origin, ref Vec2 translation )
 	{
 		origin = g_queryBenchmark.origins[index];
 		translation = g_queryBenchmark.translations[index];
@@ -1321,30 +1314,28 @@ public static partial class Benchmarks
 	// is in the step time. Full extent rays shrink the fraction as they go, 25 unit rays sit at the
 	// cache edge of this tree, 5 unit rays are the game case.
 
-	// #define TREE_CAST_RAY_COUNT ( BENCHMARK_DEBUG ? 100 : 1000 )
+	private const int TREE_CAST_RAY_COUNT = BENCHMARK_DEBUG ? 100 : 1000;
 	private const int TREE_CAST_LENGTH_COUNT = 3;
 	// Static proxies get the speculative distance twice, once in the shape box and once as the margin
-	// #define TREE_CAST_MARGIN ( 2.0f * SpeculativeDistance )
+	private static readonly float TREE_CAST_MARGIN = 2.0f * SpeculativeDistance;
 
 	// The queries benchmark casts a circle of this radius, the tree sees its box
 	private const float TREE_CAST_BOX_EXTENT = 0.1f;
-	internal struct TreeCastBenchmark
+	public struct TreeCastBenchmark
 	{
 		public DynamicTree tree;
-		public /*TODO pointer*/ AABB[] tightBoxes;
+		public AABB[] tightBoxes;
 		public int proxyCount;
 		public int proxyCapacity;
-		public /*TODO fixed 1000*/ Vec2[] origins;
-		public /*TODO fixed TREE_CAST_LENGTH_COUNT][1000*/ Vec2[] translations;
+		public Vec2[] origins;
+		public Vec2[][] translations;
 		public TreeStats stats;
 		public bool created;
 	}
 
-	internal ref struct TreeCastContext : ITreeRayCastCallback
+	public sealed class TreeCastContext
 	{
-		public float Invoke( in RayCastInput input, int proxyId, ulong userData ) => TreeCastRayCallback( input, proxyId, userData, ref this );
-
-		public ref AABB tightBoxes;
+		public AABB[] tightBoxes = null!;
 		public float fraction;
 	}
 
@@ -1419,10 +1410,10 @@ public static partial class Benchmarks
 		return tmin;
 	}
 
-	private static float TreeCastRayCallback( in RayCastInput input, int proxyId, ulong userData, ref TreeCastContext cast )
+	private static float TreeCastRayCallback( in RayCastInput input, int proxyId, ulong userData, object? context )
 	{
-		proxyId;
-		float fraction = TreeCastRayBox( cast.tightBoxes[userData], input.origin, input.translation, input.maxFraction );
+		TreeCastContext cast = (TreeCastContext)context!;
+		float fraction = TreeCastRayBox( cast.tightBoxes[(int)userData], input.origin, input.translation, input.maxFraction );
 		if ( fraction < 0.0f )
 		{
 			return -1.0f;
@@ -1433,10 +1424,10 @@ public static partial class Benchmarks
 	}
 
 	// A box sweep against a box is a ray from the cast box center against the target grown by the extents
-	private static float TreeCastBoxCallback( in BoxCastInput input, int proxyId, ulong userData, ref TreeCastContext cast )
+	private static float TreeCastBoxCallback( in BoxCastInput input, int proxyId, ulong userData, object? context )
 	{
-		proxyId;
-		AABB tight = cast.tightBoxes[userData];
+		TreeCastContext cast = (TreeCastContext)context!;
+		AABB tight = cast.tightBoxes[(int)userData];
 		Vec2 extents = AABB_Extents( input.box );
 		AABB grown = new AABB { lowerBound = Sub( tight.lowerBound, extents ), upperBound = Add( tight.upperBound, extents ) };
 		float fraction = TreeCastRayBox( grown, AABB_Center( input.box ), input.translation, input.maxFraction );
@@ -1451,7 +1442,7 @@ public static partial class Benchmarks
 
 	private static void TreeCastAddBox( Vec2 center, float hx, float hy, ulong categoryBits )
 	{
-		TreeCastBenchmark* data = &g_treeCast;
+		ref TreeCastBenchmark data = ref g_treeCast;
 		assert( data.proxyCount < data.proxyCapacity );
 
 		AABB tight = new AABB { lowerBound = new( center.x - hx, center.y - hy ), upperBound = new( center.x + hx, center.y + hy ) };
@@ -1463,13 +1454,12 @@ public static partial class Benchmarks
 		CreateTreeProxy( data.tree, fat, categoryBits, (ulong)index );
 	}
 
-	internal static void DestroyTreeCast()
+	public static void DestroyTreeCast()
 	{
-		TreeCastBenchmark* data = &g_treeCast;
+		ref TreeCastBenchmark data = ref g_treeCast;
 		if ( data.created )
 		{
 			DestroyDynamicTree( data.tree );
-			free( data.tightBoxes );
 		}
 
 		// The harness destroys after each run and prints the stats after the last one
@@ -1478,12 +1468,11 @@ public static partial class Benchmarks
 		data.stats = stats;
 	}
 
-	internal static void CreateTreeCast( WorldId worldId )
+	public static void CreateTreeCast( WorldId worldId )
 	{
-		worldId;
 		DestroyTreeCast();
 
-		TreeCastBenchmark* data = &g_treeCast;
+		ref TreeCastBenchmark data = ref g_treeCast;
 
 		// Same generator and seed as the queries benchmark so the grid matches it
 		g_queryRandomState = 1234;
@@ -1499,8 +1488,15 @@ public static partial class Benchmarks
 
 		// A tenth of the cells fill, the ground and the sensors come after
 		data.proxyCapacity = cellCount * cellCount / 5;
-		data.tightBoxes = malloc( data.proxyCapacity * Unsafe.SizeOf<AABB>() );
+		data.tightBoxes = new AABB[data.proxyCapacity];
 		data.tree = CreateDynamicTree( data.proxyCapacity );
+		data.origins = new Vec2[TREE_CAST_RAY_COUNT];
+		data.translations = new Vec2[TREE_CAST_LENGTH_COUNT][];
+		for ( int k = 0; k < TREE_CAST_LENGTH_COUNT; ++k )
+		{
+			data.translations[k] = new Vec2[TREE_CAST_RAY_COUNT];
+		}
+
 		data.created = true;
 
 		for ( int i = 0; i < cellCount; ++i )
@@ -1564,12 +1560,10 @@ public static partial class Benchmarks
 		data.stats = default(TreeStats);
 	}
 
-	internal static float StepTreeCast( WorldId worldId, int stepCount )
+	public static float StepTreeCast( WorldId worldId, int stepCount )
 	{
-		worldId;
-		stepCount;
 
-		TreeCastBenchmark* data = &g_treeCast;
+		ref TreeCastBenchmark data = ref g_treeCast;
 		DynamicTree tree = data.tree;
 		ulong[] masks = { DefaultMaskBits, 1 };
 		int rayCount = TREE_CAST_RAY_COUNT;
@@ -1584,8 +1578,8 @@ public static partial class Benchmarks
 				for ( int i = 0; i < rayCount; ++i )
 				{
 					RayCastInput input = new RayCastInput { origin = data.origins[i], translation = translations[i], maxFraction = 1.0f };
-					TreeCastContext context = new TreeCastContext { tightBoxes = ref data.tightBoxes, fraction = 1.0f };
-					TreeStats castStats = DynamicTree_CastRay( tree, ref input, masks[m], ref context );
+					TreeCastContext context = new TreeCastContext { tightBoxes = data.tightBoxes, fraction = 1.0f };
+					TreeStats castStats = DynamicTree_CastRay( tree, input, masks[m], TreeCastRayCallback, context );
 					stats.nodeVisits += castStats.nodeVisits;
 					stats.leafVisits += castStats.leafVisits;
 					hitCount += context.fraction < 1.0f ? 1 : 0;
@@ -1597,8 +1591,8 @@ public static partial class Benchmarks
 				Vec2 o = data.origins[i];
 				AABB box = new AABB { lowerBound = new( o.x - TREE_CAST_BOX_EXTENT, o.y - TREE_CAST_BOX_EXTENT ), upperBound = new( o.x + TREE_CAST_BOX_EXTENT, o.y + TREE_CAST_BOX_EXTENT ) };
 				BoxCastInput input = new BoxCastInput { box = box, translation = translations[i], maxFraction = 1.0f };
-				TreeCastContext context = new TreeCastContext { tightBoxes = ref data.tightBoxes, fraction = 1.0f };
-				TreeStats castStats = DynamicTree_CastBox( tree, ref input, DefaultMaskBits, ref context );
+				TreeCastContext context = new TreeCastContext { tightBoxes = data.tightBoxes, fraction = 1.0f };
+				TreeStats castStats = DynamicTree_CastBox( tree, input, DefaultMaskBits, TreeCastBoxCallback, context );
 				stats.nodeVisits += castStats.nodeVisits;
 				stats.leafVisits += castStats.leafVisits;
 				hitCount += context.fraction < 1.0f ? 1 : 0;
@@ -1611,7 +1605,7 @@ public static partial class Benchmarks
 		return (float)hitCount;
 	}
 
-	internal static TreeStats GetTreeCastBenchmarkStats()
+	public static TreeStats GetTreeCastBenchmarkStats()
 	{
 		return g_treeCast.stats;
 	}
@@ -1623,14 +1617,14 @@ public static partial class Benchmarks
 	// the shape of a level that streams.
 
 	private const float TILE_PERIOD = 40.0f;
-	// #define TILE_CYCLE_COUNT ( BENCHMARK_DEBUG ? 10 : 600 )
+	private const int TILE_CYCLE_COUNT = BENCHMARK_DEBUG ? 10 : 600;
 	private const float TILE_GRID_SIZE = 1.0f;
 	private const int TILE_COLUMNS_PER_BODY = 10;
-	// #define TILE_QUERY_COUNT ( BENCHMARK_DEBUG ? 50 : 500 )
+	private const int TILE_QUERY_COUNT = BENCHMARK_DEBUG ? 50 : 500;
 	private const float TILE_RAY_LENGTH = 25.0f;
-	internal struct TileWorldBenchmark
+	public struct TileWorldBenchmark
 	{
-		public /*TODO pointer*/ BodyId[] groundIds;
+		public BodyId[] groundIds;
 		public int groundCount;
 		public int groundHead;
 		public float bodySpan;
@@ -1641,9 +1635,9 @@ public static partial class Benchmarks
 
 	static TileWorldBenchmark g_tileWorld;
 
-	private static float TileRandom( Span<uint> state, float lower, float upper )
+	private static float TileRandom( ref uint state, float lower, float upper )
 	{
-		state = 1664525u * state[1013904223u];
+		state = 1664525u * state + 1013904223u;
 		float unit = (float)( state >> 8 ) * ( 1.0f / 16777216.0f );
 		return lower + ( upper - lower ) * unit;
 	}
@@ -1662,7 +1656,7 @@ public static partial class Benchmarks
 		float xShape = 0.0f;
 		for ( int i = 0; i < TILE_COLUMNS_PER_BODY; ++i )
 		{
-			int columnCount = (int)roundf( 4.0f * cosf( omega * ( xBody + xShape ) ) ) + 12;
+			int columnCount = (int)MathF.Round( 4.0f * MathF.Cos( omega * ( xBody + xShape ) ) ) + 12;
 			float y = 0.0f;
 			for ( int j = 0; j < columnCount; ++j )
 			{
@@ -1679,10 +1673,9 @@ public static partial class Benchmarks
 		return groundId;
 	}
 
-	internal static void DestroyTileWorld()
+	public static void DestroyTileWorld()
 	{
-		TileWorldBenchmark* data = &g_tileWorld;
-		free( data.groundIds );
+		ref TileWorldBenchmark data = ref g_tileWorld;
 
 		// The harness destroys after each run and prints the stats after the last one
 		TreeStats stats = data.stats;
@@ -1690,22 +1683,22 @@ public static partial class Benchmarks
 		data.stats = stats;
 	}
 
-	internal static Capacity GetTileWorldCapacity()
+	public static Capacity GetTileWorldCapacity()
 	{
 		Capacity c = new Capacity { staticShapeCount = BENCHMARK_DEBUG ? 5300 : 320000, dynamicShapeCount = BENCHMARK_DEBUG ? 55 : 2200, staticBodyCount = BENCHMARK_DEBUG ? 44 : 2700, dynamicBodyCount = BENCHMARK_DEBUG ? 55 : 2200, contactCount = BENCHMARK_DEBUG ? 200 : 8800, arenaByteCount = ( BENCHMARK_DEBUG ? 14 : 1300 ) * 1024 };
 
 		return c;
 	}
 
-	internal static void CreateTileWorld( WorldId worldId )
+	public static void CreateTileWorld( WorldId worldId )
 	{
 		DestroyTileWorld();
 
-		TileWorldBenchmark* data = &g_tileWorld;
+		ref TileWorldBenchmark data = ref g_tileWorld;
 
 		int gridCount = (int)( TILE_CYCLE_COUNT * TILE_PERIOD / TILE_GRID_SIZE );
 		data.groundCount = gridCount / TILE_COLUMNS_PER_BODY;
-		data.groundIds = malloc( data.groundCount * Unsafe.SizeOf<BodyId>() );
+		data.groundIds = new BodyId[data.groundCount];
 		data.bodySpan = TILE_COLUMNS_PER_BODY * TILE_GRID_SIZE;
 		data.xLeft = -0.5f * ( TILE_CYCLE_COUNT * TILE_PERIOD );
 		data.xNext = data.xLeft;
@@ -1747,14 +1740,13 @@ public static partial class Benchmarks
 
 	private static bool TileOverlapCount( ShapeId shapeId, object? context )
 	{
-		shapeId;
-		*(int*)context += 1;
+		( (StrongBox<int>)context! ).Value += 1;
 		return true;
 	}
 
-	internal static float StepTileWorld( WorldId worldId, int stepCount )
+	public static float StepTileWorld( WorldId worldId, int stepCount )
 	{
-		TileWorldBenchmark* data = &g_tileWorld;
+		ref TileWorldBenchmark data = ref g_tileWorld;
 
 		// Stream one ground body, the leftmost goes and the sine continues on the right
 		DestroyBody( data.groundIds[data.groundHead] );
@@ -1773,20 +1765,20 @@ public static partial class Benchmarks
 
 		for ( int i = 0; i < TILE_QUERY_COUNT; ++i )
 		{
-			Pos origin = new Pos { x = data.xLeft + TileRandom( state, 0.0f, span ), y = TileRandom( state, -2.0f, 18.0f ) };
-			float angle = TileRandom( state, 0.0f, 2.0f * Pi );
-			Vec2 translation = new Vec2( TILE_RAY_LENGTH * cosf( angle ), TILE_RAY_LENGTH * sinf( angle ) );
+			Pos origin = new Pos { x = data.xLeft + TileRandom( ref state, 0.0f, span ), y = TileRandom( ref state, -2.0f, 18.0f ) };
+			float angle = TileRandom( ref state, 0.0f, 2.0f * Pi );
+			Vec2 translation = new Vec2( TILE_RAY_LENGTH * MathF.Cos( angle ), TILE_RAY_LENGTH * MathF.Sin( angle ) );
 
 			RayResult result = World_CastRayClosest( worldId, origin, translation, filter );
 			stats.nodeVisits += result.nodeVisits;
 			stats.leafVisits += result.leafVisits;
 			hitCount += result.hit ? 1 : 0;
 
-			int overlapCount = 0;
+			StrongBox<int> overlapCount = new( 0 );
 			TreeStats overlapStats = World_OverlapAABB( worldId, origin, aabb, filter, TileOverlapCount, overlapCount );
 			stats.nodeVisits += overlapStats.nodeVisits;
 			stats.leafVisits += overlapStats.leafVisits;
-			hitCount += overlapCount;
+			hitCount += overlapCount.Value;
 		}
 
 		data.stats.nodeVisits += stats.nodeVisits;
@@ -1795,7 +1787,7 @@ public static partial class Benchmarks
 		return (float)hitCount;
 	}
 
-	internal static TreeStats GetTileWorldBenchmarkStats()
+	public static TreeStats GetTileWorldBenchmarkStats()
 	{
 		return g_tileWorld.stats;
 	}

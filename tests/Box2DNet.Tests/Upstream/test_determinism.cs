@@ -7,7 +7,8 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using static Box2DNet.B2;
 using static Box2DNet.Tests.TestMacros;
-using static Box2DNet.Tests.DeterminismShared;
+using Box2DNet.Shared;
+using static Box2DNet.Shared.SharedLib;
 
 namespace Box2DNet.Tests;
 
