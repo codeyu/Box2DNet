@@ -1,522 +1,716 @@
-﻿/*
-  Box2DNet Copyright (c) 2009 Ihar Kalasouski http://code.google.com/p/box2dx
-  Box2D original C++ version Copyright (c) 2006-2009 Erin Catto http://www.gphysics.com
+// SPDX-FileCopyrightText: 2023 Erin Catto
+// SPDX-License-Identifier: MIT
 
-  This software is provided 'as-is', without any express or implied
-  warranty.  In no event will the authors be held liable for any damages
-  arising from the use of this software.
+using System;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
-  Permission is granted to anyone to use this software for any purpose,
-  including commercial applications, and to alter it and redistribute it
-  freely, subject to the following restrictions:
+namespace Box2DNet;
 
-  1. The origin of this software must not be misrepresented; you must not
-     claim that you wrote the original software. If you use this software
-     in a product, an acknowledgment in the product documentation would be
-     appreciated but is not required.
-  2. Altered source versions must be plainly marked as such, and must not be
-     misrepresented as being the original software.
-  3. This notice may not be removed or altered from any source distribution.
-*/
-
-/*
-Position Correction Notes
-=========================
-I tried the several algorithms for position correction of the 2D revolute joint.
-I looked at these systems:
-- simple pendulum (1m diameter sphere on massless 5m stick) with initial angular velocity of 100 rad/s.
-- suspension bridge with 30 1m long planks of length 1m.
-- multi-link chain with 30 1m long links.
-
-Here are the algorithms:
-
-Baumgarte - A fraction of the position error is added to the velocity error. There is no
-separate position solver.
-
-Pseudo Velocities - After the velocity solver and position integration,
-the position error, Jacobian, and effective mass are recomputed. Then
-the velocity constraints are solved with pseudo velocities and a fraction
-of the position error is added to the pseudo velocity error. The pseudo
-velocities are initialized to zero and there is no warm-starting. After
-the position solver, the pseudo velocities are added to the positions.
-This is also called the First Order World method or the Position LCP method.
-
-Modified Nonlinear Gauss-Seidel (NGS) - Like Pseudo Velocities except the
-position error is re-computed for each constraint and the positions are updated
-after the constraint is solved. The radius vectors (aka Jacobians) are
-re-computed too (otherwise the algorithm has horrible instability). The pseudo
-velocity states are not needed because they are effectively zero at the beginning
-of each iteration. Since we have the current position error, we allow the
-iterations to terminate early if the error becomes smaller than b2_linearSlop.
-
-Full NGS or just NGS - Like Modified NGS except the effective mass are re-computed
-each time a constraint is solved.
-
-Here are the results:
-Baumgarte - this is the cheapest algorithm but it has some stability problems,
-especially with the bridge. The chain links separate easily close to the root
-and they jitter as they struggle to pull together. This is one of the most common
-methods in the field. The big drawback is that the position correction artificially
-affects the momentum, thus leading to instabilities and false bounce. I used a
-bias factor of 0.2. A larger bias factor makes the bridge less stable, a smaller
-factor makes joints and contacts more spongy.
-
-Pseudo Velocities - the is more stable than the Baumgarte method. The bridge is
-stable. However, joints still separate with large angular velocities. Drag the
-simple pendulum in a circle quickly and the joint will separate. The chain separates
-easily and does not recover. I used a bias factor of 0.2. A larger value lead to
-the bridge collapsing when a heavy cube drops on it.
-
-Modified NGS - this algorithm is better in some ways than Baumgarte and Pseudo
-Velocities, but in other ways it is worse. The bridge and chain are much more
-stable, but the simple pendulum goes unstable at high angular velocities.
-
-Full NGS - stable in all tests. The joints display good stiffness. The bridge
-still sags, but this is better than infinite forces.
-
-Recommendations
-Pseudo Velocities are not really worthwhile because the bridge and chain cannot
-recover from joint separation. In other cases the benefit over Baumgarte is small.
-
-Modified NGS is not a robust method for the revolute joint due to the violent
-instability seen in the simple pendulum. Perhaps it is viable with other constraint
-types, especially scalar constraints where the effective mass is a scalar.
-
-This leaves Baumgarte and Full NGS. Baumgarte has small, but manageable instabilities
-and is very fast. I don't think we can escape Baumgarte, especially in highly
-demanding cases where high constraint fidelity is not needed.
-
-Full NGS is robust and easy on the eyes. I recommend this as an option for
-higher fidelity simulation and certainly for suspension bridges and long chains.
-Full NGS might be a good choice for ragdolls, especially motorized ragdolls where
-joint separation can be problematic. The number of NGS iterations can be reduced
-for better performance without harming robustness much.
-
-Each joint in a can be handled differently in the position solver. So I recommend
-a system where the user can select the algorithm on a per joint basis. I would
-probably default to the slower Full NGS and let the user select the faster
-Baumgarte method in performance critical scenarios.
-*/
-
-/*
-Cache Performance
-
-The Box2D solvers are dominated by cache misses. Data structures are designed
-to increase the number of cache hits. Much of misses are due to random access
-to body data. The constraint structures are iterated over linearly, which leads
-to few cache misses.
-
-The _bodies are not accessed during iteration. Instead read only data, such as
-the mass values are stored with the constraints. The mutable data are the constraint
-impulses and the _bodies velocities/positions. The impulses are held inside the
-constraint structures. The body velocities/positions are held in compact, temporary
-arrays to increase the number of cache hits. Linear and angular velocity are
-stored in a single array since multiple arrays lead to multiple misses.
-*/
-
-/*
-2D Rotation
-
-R = [cos(theta) -sin(theta)]
-    [sin(theta) cos(theta) ]
-
-thetaDot = omega
-
-Let q1 = cos(theta), q2 = sin(theta).
-R = [q1 -q2]
-    [q2  q1]
-
-q1Dot = -thetaDot * q2
-q2Dot = thetaDot * q1
-
-q1_new = q1_old - dt * w * q2
-q2_new = q2_old + dt * w * q1
-then normalize.
-
-This might be faster than computing sin+cos.
-However, we can compute sin+cos of the same angle fast.
-*/
-
-using System; using System.Numerics;
-using System.Collections.Generic;
-using System.Text;
-
-using Box2DNet.Common;
-using Box2DNet.Collision;
-
- 
-
-namespace Box2DNet.Dynamics
+public static partial class B2
 {
-	public struct Position
+	internal static ref Island CreateIsland( World world, int setIndex )
 	{
-		public Vector2 x;
-		public float a;
+		B2_ASSERT( setIndex == b2_awakeSet || setIndex >= b2_firstSleepingSet );
+
+		int islandId = AllocId( ref world.islandIdPool );
+
+		if ( islandId == world.islands.count )
+		{
+			Island emptyIsland = default;
+			world.islands.Push( emptyIsland );
+		}
+		else
+		{
+			B2_ASSERT( world.islands.data[islandId].setIndex == NullIndex );
+		}
+
+		ref SolverSet set = ref world.solverSets[setIndex];
+		ref Island island = ref world.islands[islandId];
+		island.setIndex = setIndex;
+		island.localIndex = set.islandSims.count;
+		island.islandId = islandId;
+		island.bodies = default;
+		island.contacts = default;
+		island.joints = default;
+		island.constraintRemoveCount = 0;
+
+		ref IslandSim islandSim = ref set.islandSims.Emplace();
+		islandSim.islandId = islandId;
+
+		return ref island;
 	}
 
-	public struct Velocity
+	internal static void DestroyIsland( World world, int islandId )
 	{
-		public Vector2 v;
-		public float w;
+		if ( world.splitIslandId == islandId )
+		{
+			world.splitIslandId = NullIndex;
+		}
+
+		// assume island is empty
+		ref Island island = ref world.islands[islandId];
+		ref SolverSet set = ref world.solverSets[island.setIndex];
+		{
+			int localIndex = island.localIndex;
+			int lastIndex = set.islandSims.count - 1;
+			B2_ASSERT( 0 <= localIndex && localIndex <= lastIndex );
+			int moveIslandId = set.islandSims.data[lastIndex].islandId;
+			set.islandSims.data[localIndex] = set.islandSims.data[lastIndex];
+			world.islands.data[moveIslandId].localIndex = localIndex;
+			set.islandSims.count -= 1;
+		}
+
+		// Free island and id (preserve island revision)
+		island.bodies.Destroy();
+		island.contacts.Destroy();
+		island.joints.Destroy();
+		island.constraintRemoveCount = 0;
+		island.localIndex = NullIndex;
+		island.islandId = NullIndex;
+		island.setIndex = NullIndex;
+
+		B2_VALIDATE( island.localIndex == NullIndex );
+
+		FreeId( ref world.islandIdPool, islandId );
 	}
 
-	public class Island : IDisposable
+	private static int MergeIslands( World world, int islandIdA, int islandIdB )
 	{
-		public ContactListener _listener;
-
-		public Body[] _bodies;
-		public Contact[] _contacts;
-		public Joint[] _joints;
-
-		public Position[] _positions;
-		public Velocity[] _velocities;
-
-		public int _bodyCount;
-		public int _jointCount;
-		public int _contactCount;
-
-		public int _bodyCapacity;
-		public int _contactCapacity;
-		public int _jointCapacity;
-
-		public int _positionIterationCount;
-
-		public Island(int bodyCapacity, int contactCapacity, int jointCapacity, ContactListener listener)
+		if ( islandIdA == islandIdB )
 		{
-			_bodyCapacity = bodyCapacity;
-			_contactCapacity = contactCapacity;
-			_jointCapacity = jointCapacity;
-			//__bodyCount = 0;
-			//_contactCount = 0;
-			//_jointCount = 0;
-
-			_listener = listener;
-
-			_bodies = new Body[bodyCapacity];
-			_contacts = new Contact[contactCapacity];
-			_joints = new Joint[jointCapacity];
-
-			_velocities = new Velocity[_bodyCapacity];
-			_positions = new Position[_bodyCapacity];
+			return islandIdA;
 		}
 
-		public void Dispose()
+		if ( islandIdA == NullIndex )
 		{
-			// Warning: the order should reverse the constructor order.
-			_positions = null;
-			_velocities = null;
-			_joints = null;
-			_contacts = null;
-			_bodies = null;
+			B2_ASSERT( islandIdB != NullIndex );
+			return islandIdB;
 		}
 
-		public void Clear()
+		if ( islandIdB == NullIndex )
 		{
-			_bodyCount = 0;
-			_contactCount = 0;
-			_jointCount = 0;
+			B2_ASSERT( islandIdA != NullIndex );
+			return islandIdA;
 		}
 
-		public void Solve(TimeStep step, Vector2 gravity, bool allowSleep)
+		scoped ref Island smallIsland = ref Unsafe.NullRef<Island>();
+		scoped ref Island bigIsland = ref Unsafe.NullRef<Island>();
 		{
-			// Integrate velocities and apply damping.
-			for (int i = 0; i < _bodyCount; ++i)
+			ref Island islandA = ref world.islands[islandIdA];
+			ref Island islandB = ref world.islands[islandIdB];
+			// Keep the biggest island to reduce cache misses
+			if ( islandA.bodies.count >= islandB.bodies.count )
 			{
-				Body b = _bodies[i];
+				bigIsland = ref islandA;
+				smallIsland = ref islandB;
+			}
+			else
+			{
+				bigIsland = ref islandB;
+				smallIsland = ref islandA;
+			}
+		}
 
-				if (b.IsStatic())
-					continue;
+		int bigIslandId = bigIsland.islandId;
+		bigIsland.bodies.Grow( bigIsland.bodies.count + smallIsland.bodies.count );
 
-				// Integrate velocities.
-				b._linearVelocity += step.Dt * (gravity + b._invMass * b._force);
-				b._angularVelocity += step.Dt * b._invI * b._torque;
+		// Move bodies from smaller island to larger island
+		for ( int i = 0; i < smallIsland.bodies.count; ++i )
+		{
+			int bodyId = smallIsland.bodies.data[i];
+			ref Body body = ref world.bodies[bodyId];
+			B2_VALIDATE( body.islandId == smallIsland.islandId );
+			body.islandId = bigIslandId;
+			body.islandIndex = bigIsland.bodies.count;
+			bigIsland.bodies.Push( bodyId );
+		}
 
-				// Reset forces.
-				b._force = Vector2.Zero;
-				b._torque = 0.0f;
+		// Migrate contacts from smaller island to larger island
+		if ( smallIsland.contacts.count > 0 )
+		{
+			bigIsland.contacts.Grow( bigIsland.contacts.count + smallIsland.contacts.count );
 
-				// Apply damping.
-				// ODE: dv/dt + c * v = 0
-				// Solution: v(t) = v0 * exp(-c * t)
-				// Time step: v(t + dt) = v0 * exp(-c * (t + dt)) = v0 * exp(-c * t) * exp(-c * dt) = v * exp(-c * dt)
-				// v2 = exp(-c * dt) * v1
-				// Taylor expansion:
-				// v2 = (1.0f - c * dt) * v1
-				b._linearVelocity *= Box2DNet.Common.Math.Clamp(1.0f - step.Dt * b._linearDamping, 0.0f, 1.0f);
-				b._angularVelocity *= Box2DNet.Common.Math.Clamp(1.0f - step.Dt * b._angularDamping, 0.0f, 1.0f);
+			for ( int i = 0; i < smallIsland.contacts.count; ++i )
+			{
+				ref ContactLink link = ref smallIsland.contacts.data[i];
+				ref Contact contact = ref world.contacts[link.contactId];
+				contact.islandId = bigIslandId;
+				contact.islandIndex = bigIsland.contacts.count;
+				bigIsland.contacts.Push( link );
+			}
+		}
+
+		// Migrate joints from smaller island to larger island
+		if ( smallIsland.joints.count > 0 )
+		{
+			bigIsland.joints.Grow( bigIsland.joints.count + smallIsland.joints.count );
+
+			for ( int i = 0; i < smallIsland.joints.count; ++i )
+			{
+				ref JointLink link = ref smallIsland.joints.data[i];
+				ref Joint joint = ref world.joints[link.jointId];
+				joint.islandId = bigIslandId;
+				joint.islandIndex = bigIsland.joints.count;
+				bigIsland.joints.Push( link );
+			}
+		}
+
+		// Track removed constraints
+		bigIsland.constraintRemoveCount += smallIsland.constraintRemoveCount;
+
+		DestroyIsland( world, smallIsland.islandId );
+
+		ValidateIsland( world, bigIslandId );
+
+		return bigIslandId;
+	}
+
+	private static void AddContactToIsland( World world, int islandId, ref Contact contact )
+	{
+		B2_ASSERT( contact.islandId == NullIndex );
+		B2_ASSERT( contact.islandIndex == NullIndex );
+
+		ref Island island = ref world.islands[islandId];
+		contact.islandId = islandId;
+		contact.islandIndex = island.contacts.count;
+
+		ContactLink link = default;
+		link.contactId = contact.contactId;
+		link.bodyIdA = contact.edges[0].bodyId;
+		link.bodyIdB = contact.edges[1].bodyId;
+		island.contacts.Push( link );
+
+		ValidateIsland( world, islandId );
+	}
+
+	// Link a contact into an island.
+	internal static void LinkContact( World world, ref Contact contact )
+	{
+		B2_ASSERT( ( contact.flags & b2_contactTouchingFlag ) != 0 );
+
+		int bodyIdA = contact.edges[0].bodyId;
+		int bodyIdB = contact.edges[1].bodyId;
+
+		ref Body bodyA = ref world.bodies[bodyIdA];
+		ref Body bodyB = ref world.bodies[bodyIdB];
+		B2_ASSERT( bodyA.setIndex != b2_disabledSet && bodyB.setIndex != b2_disabledSet );
+		B2_ASSERT( bodyA.setIndex != b2_staticSet || bodyB.setIndex != b2_staticSet );
+
+		// Wake bodyB if bodyA is awake and bodyB is sleeping
+		if ( bodyA.setIndex == b2_awakeSet && bodyB.setIndex >= b2_firstSleepingSet )
+		{
+			WakeSolverSet( world, bodyB.setIndex );
+		}
+
+		// Wake bodyA if bodyB is awake and bodyA is sleeping
+		if ( bodyB.setIndex == b2_awakeSet && bodyA.setIndex >= b2_firstSleepingSet )
+		{
+			WakeSolverSet( world, bodyA.setIndex );
+		}
+
+		int islandIdA = bodyA.islandId;
+		int islandIdB = bodyB.islandId;
+
+		// Static bodies have null island indices.
+		B2_ASSERT( bodyA.setIndex != b2_staticSet || islandIdA == NullIndex );
+		B2_ASSERT( bodyB.setIndex != b2_staticSet || islandIdB == NullIndex );
+		B2_ASSERT( islandIdA != NullIndex || islandIdB != NullIndex );
+
+		// Merge islands. This will destroy one of the islands.
+		int finalIslandId = MergeIslands( world, islandIdA, islandIdB );
+
+		// Add contact to the island that survived
+		AddContactToIsland( world, finalIslandId, ref contact );
+	}
+
+	// This is called when a contact no longer has contact points or when a contact is destroyed.
+	internal static void UnlinkContact( World world, ref Contact contact )
+	{
+		B2_ASSERT( contact.islandId != NullIndex );
+
+		// remove from island
+		int islandId = contact.islandId;
+		ref Island island = ref world.islands[islandId];
+		int removeIndex = contact.islandIndex;
+		B2_ASSERT( 0 <= removeIndex && removeIndex < island.contacts.count );
+		B2_ASSERT( island.contacts.data[removeIndex].contactId == contact.contactId );
+
+		int movedIndex = island.contacts.RemoveSwap( removeIndex );
+		if ( movedIndex != NullIndex )
+		{
+			// Fix islandIndex on the contact that was swapped into removeIndex
+			ref ContactLink movedLink = ref island.contacts.data[removeIndex];
+			ref Contact movedContact = ref world.contacts[movedLink.contactId];
+			B2_ASSERT( movedContact.islandIndex == movedIndex );
+			movedContact.islandIndex = removeIndex;
+		}
+
+		contact.islandId = NullIndex;
+		contact.islandIndex = NullIndex;
+		island.constraintRemoveCount += 1;
+
+		ValidateIsland( world, islandId );
+	}
+
+	private static void AddJointToIsland( World world, int islandId, ref Joint joint )
+	{
+		B2_ASSERT( joint.islandId == NullIndex );
+		B2_ASSERT( joint.islandIndex == NullIndex );
+
+		ref Island island = ref world.islands[islandId];
+		joint.islandId = islandId;
+		joint.islandIndex = island.joints.count;
+
+		JointLink link = default;
+		link.jointId = joint.jointId;
+		link.bodyIdA = joint.edges[0].bodyId;
+		link.bodyIdB = joint.edges[1].bodyId;
+		island.joints.Push( link );
+
+		ValidateIsland( world, islandId );
+	}
+
+	internal static void LinkJoint( World world, ref Joint joint )
+	{
+		ref Body bodyA = ref world.bodies[joint.edges[0].bodyId];
+		ref Body bodyB = ref world.bodies[joint.edges[1].bodyId];
+		B2_ASSERT( bodyA.type == BodyType.dynamicBody || bodyB.type == BodyType.dynamicBody );
+
+		if ( bodyA.setIndex == b2_awakeSet && bodyB.setIndex >= b2_firstSleepingSet )
+		{
+			WakeSolverSet( world, bodyB.setIndex );
+		}
+		else if ( bodyB.setIndex == b2_awakeSet && bodyA.setIndex >= b2_firstSleepingSet )
+		{
+			WakeSolverSet( world, bodyA.setIndex );
+		}
+
+		int islandIdA = bodyA.islandId;
+		int islandIdB = bodyB.islandId;
+
+		B2_ASSERT( islandIdA != NullIndex || islandIdB != NullIndex );
+
+		// Merge islands. This will destroy one of the islands.
+		int finalIslandId = MergeIslands( world, islandIdA, islandIdB );
+
+		// Add joint the island that survived
+		AddJointToIsland( world, finalIslandId, ref joint );
+	}
+
+	internal static void UnlinkJoint( World world, ref Joint joint )
+	{
+		if ( joint.islandId == NullIndex )
+		{
+			return;
+		}
+
+		// remove from island
+		int islandId = joint.islandId;
+		ref Island island = ref world.islands[islandId];
+		int removeIndex = joint.islandIndex;
+		B2_ASSERT( 0 <= removeIndex && removeIndex < island.joints.count );
+		B2_ASSERT( island.joints.data[removeIndex].jointId == joint.jointId );
+
+		int movedIndex = island.joints.RemoveSwap( removeIndex );
+		if ( movedIndex != NullIndex )
+		{
+			// Fix islandIndex on the joint that was swapped into removeIndex
+			ref JointLink movedLink = ref island.joints.data[removeIndex];
+			ref Joint movedJoint = ref world.joints[movedLink.jointId];
+			B2_ASSERT( movedJoint.islandIndex == movedIndex );
+			movedJoint.islandIndex = removeIndex;
+		}
+
+		joint.islandId = NullIndex;
+		joint.islandIndex = NullIndex;
+		island.constraintRemoveCount += 1;
+
+		ValidateIsland( world, islandId );
+	}
+
+	// Find parent of a node. Use path halving to speed up further queries.
+	internal static int IslandFindParent( Span<int> parents, int node )
+	{
+		// Walk the chain of parents to find the node that is its own parent (the root)
+		while ( parents[node] != node )
+		{
+			int grandParent = parents[parents[node]];
+			parents[node] = grandParent;
+			node = grandParent;
+		}
+
+		return node;
+	}
+
+	// Connect the components containing node1 and node2.
+	// Uses rank to keep tree balanced. Tracks per-component contact and joint counts.
+	internal static void IslandUnion( Span<int> parents, Span<int> ranks, int node1, int node2, Span<int> contactCounts, Span<int> jointCounts )
+	{
+		int root1 = IslandFindParent( parents, node1 );
+		int root2 = IslandFindParent( parents, node2 );
+		if ( root1 != root2 )
+		{
+			if ( ranks[root1] < ranks[root2] )
+			{
+				parents[root1] = root2;
+				contactCounts[root2] += contactCounts[root1];
+				jointCounts[root2] += jointCounts[root1];
+			}
+			else if ( ranks[root1] > ranks[root2] )
+			{
+				parents[root2] = root1;
+				contactCounts[root1] += contactCounts[root2];
+				jointCounts[root1] += jointCounts[root2];
+			}
+			else
+			{
+				parents[root2] = root1;
+				ranks[root1] += 1;
+				contactCounts[root1] += contactCounts[root2];
+				jointCounts[root1] += jointCounts[root2];
+			}
+		}
+	}
+
+	// This uses union-find.
+	// https://en.wikipedia.org/wiki/Disjoint-set_data_structure
+	internal static void SplitIsland( World world, int baseId )
+	{
+		ref Island baseIsland = ref world.islands[baseId];
+		B2_ASSERT( baseIsland.constraintRemoveCount > 0 );
+		B2_ASSERT( baseIsland.setIndex == b2_awakeSet );
+
+		ValidateIsland( world, baseId );
+
+		// Cache base island fields before CreateIsland, which may reallocate
+		// world.islands and invalidate the baseIsland pointer.
+		int baseBodyCount = baseIsland.bodies.count;
+		int[] baseBodyIds = baseIsland.bodies.data;
+		int baseBodyCapacity = baseIsland.bodies.capacity;
+
+		int baseContactCount = baseIsland.contacts.count;
+		ContactLink[] baseContacts = baseIsland.contacts.data;
+		int baseContactCapacity = baseIsland.contacts.capacity;
+
+		int baseJointCount = baseIsland.joints.count;
+		JointLink[] baseJoints = baseIsland.joints.data;
+		int baseJointCapacity = baseIsland.joints.capacity;
+
+		ArenaAllocator alloc = world.stack;
+		// No lock is needed because I ensure the allocator is not used while this task is active.
+		// Allocate contactCounts and jointCounts before ranks so ranks can be freed first (LIFO arena).
+		Span<int> parents = alloc.Alloc<int>( baseBodyCount, "parents" );
+		Span<int> contactCounts = alloc.Alloc<int>( baseBodyCount, "contact counts" );
+		Span<int> jointCounts = alloc.Alloc<int>( baseBodyCount, "joint counts" );
+		Span<int> ranks = alloc.Alloc<int>( baseBodyCount, "ranks" );
+		for ( int i = 0; i < baseBodyCount; ++i )
+		{
+			parents[i] = i;
+			ranks[i] = 0;
+			contactCounts[i] = 0;
+			jointCounts[i] = 0;
+		}
+
+		Span<Body> bodies = world.bodies.data;
+		// Union over contacts, tracking per-component contact counts
+		for ( int i = 0; i < baseContactCount; ++i )
+		{
+			int bodyIdA = baseContacts[i].bodyIdA;
+			int bodyIdB = baseContacts[i].bodyIdB;
+			B2_VALIDATE( 0 <= bodyIdA && bodyIdA < world.bodies.count );
+			B2_VALIDATE( 0 <= bodyIdB && bodyIdB < world.bodies.count );
+			ref Body bodyA = ref bodies[bodyIdA];
+			ref Body bodyB = ref bodies[bodyIdB];
+			int islandIndexA = bodyA.islandIndex;
+			int islandIndexB = bodyB.islandIndex;
+
+			// Only connect non-static bodies
+			if ( islandIndexA != NullIndex && islandIndexB != NullIndex )
+			{
+				B2_VALIDATE( 0 <= islandIndexA && islandIndexA < baseBodyCount );
+				B2_VALIDATE( 0 <= islandIndexB && islandIndexB < baseBodyCount );
+				IslandUnion( parents, ranks, islandIndexA, islandIndexB, contactCounts, jointCounts );
+				int root = IslandFindParent( parents, islandIndexA );
+				contactCounts[root] += 1;
+			}
+			else
+			{
+				int islandIndex = islandIndexA != NullIndex ? islandIndexA : islandIndexB;
+				int root = IslandFindParent( parents, islandIndex );
+				contactCounts[root] += 1;
+			}
+		}
+
+		// Union over joints, tracking per-component joint counts
+		for ( int i = 0; i < baseJointCount; ++i )
+		{
+			int bodyIdA = baseJoints[i].bodyIdA;
+			int bodyIdB = baseJoints[i].bodyIdB;
+			B2_VALIDATE( 0 <= bodyIdA && bodyIdA < world.bodies.count );
+			B2_VALIDATE( 0 <= bodyIdB && bodyIdB < world.bodies.count );
+			ref Body bodyA = ref bodies[bodyIdA];
+			ref Body bodyB = ref bodies[bodyIdB];
+			int islandIndexA = bodyA.islandIndex;
+			int islandIndexB = bodyB.islandIndex;
+
+			// Only connect non-static bodies
+			if ( islandIndexA != NullIndex && islandIndexB != NullIndex )
+			{
+				B2_VALIDATE( 0 <= islandIndexA && islandIndexA < baseBodyCount );
+				B2_VALIDATE( 0 <= islandIndexB && islandIndexB < baseBodyCount );
+				IslandUnion( parents, ranks, islandIndexA, islandIndexB, contactCounts, jointCounts );
+				int root = IslandFindParent( parents, islandIndexA );
+				jointCounts[root] += 1;
+			}
+			else
+			{
+				int islandIndex = islandIndexA != NullIndex ? islandIndexA : islandIndexB;
+				int root = IslandFindParent( parents, islandIndex );
+				jointCounts[root] += 1;
+			}
+		}
+
+		// Done with ranks
+		alloc.Free( ranks );
+		ranks = null;
+
+		// Flatten all parent indices and count connected components.
+		int componentCount = 0;
+		for ( int i = 0; i < baseBodyCount; ++i )
+		{
+			parents[i] = IslandFindParent( parents, i );
+			if ( parents[i] == i )
+			{
+				componentCount += 1;
+			}
+		}
+
+		// Early return — island is still fully connected, no split needed.
+		if ( componentCount == 1 )
+		{
+			baseIsland.constraintRemoveCount = 0;
+			alloc.Free( jointCounts );
+			alloc.Free( contactCounts );
+			alloc.Free( parents );
+			return;
+		}
+
+		// Detach body/contact/joint arrays from base island so DestroyIsland won't free them
+		baseIsland.bodies.data = null!;
+		baseIsland.bodies.count = 0;
+		baseIsland.bodies.capacity = 0;
+
+		baseIsland.contacts.data = null!;
+		baseIsland.contacts.count = 0;
+		baseIsland.contacts.capacity = 0;
+
+		baseIsland.joints.data = null!;
+		baseIsland.joints.count = 0;
+		baseIsland.joints.capacity = 0;
+
+		// Null so code below doesn't accidentally use this.
+		baseIsland = ref Unsafe.NullRef<Island>();
+
+		// Map from body index to new island index. Only set for root bodies.
+		Span<int> rootMap = alloc.Alloc<int>( baseBodyCount, "root map" );
+		for ( int i = 0; i < baseBodyCount; ++i )
+		{
+			rootMap[i] = NullIndex;
+		}
+
+		Span<int> componentBodyCounts = alloc.Alloc<int>( componentCount, "component body counts" );
+		Span<int> componentContactCounts = alloc.Alloc<int>( componentCount, "component contact counts" );
+		Span<int> componentJointCounts = alloc.Alloc<int>( componentCount, "component joint counts" );
+		int islandCount = 0;
+
+		// Find the root body for each body and create islands as needed.
+		// Extract per-component counts from the root nodes' accumulated counts.
+		for ( int i = 0; i < baseBodyCount; ++i )
+		{
+			int rootIndex = parents[i];
+			if ( rootMap[rootIndex] == NullIndex )
+			{
+				rootMap[rootIndex] = islandCount;
+				componentBodyCounts[islandCount] = 0;
+				componentContactCounts[islandCount] = contactCounts[rootIndex];
+				componentJointCounts[islandCount] = jointCounts[rootIndex];
+				islandCount += 1;
 			}
 
-			ContactSolver contactSolver = new ContactSolver(step, _contacts, _contactCount);
+			componentBodyCounts[rootMap[rootIndex]] += 1;
+		}
 
-			// Initialize velocity constraints.
-			contactSolver.InitVelocityConstraints(step);
+		B2_ASSERT( islandCount == componentCount );
 
-			for (int i = 0; i < _jointCount; ++i)
+		// Map from new island index to island id
+		Span<int> islandIds = alloc.Alloc<int>( islandCount, "island ids" );
+		// Create new islands and reserve body/contact/joint arrays
+		for ( int i = 0; i < islandCount; ++i )
+		{
+			// WARNING: this invalidates baseIsland pointer
+			ref Island newIsland = ref CreateIsland( world, b2_awakeSet );
+			islandIds[i] = newIsland.islandId;
+
+			// Reserve arrays to avoid wasteful growth and memcpy.
+			newIsland.bodies.Reserve( componentBodyCounts[i] );
+			newIsland.contacts.Reserve( componentContactCounts[i] );
+			newIsland.joints.Reserve( componentJointCounts[i] );
+		}
+
+		// Assign bodies to new islands
+		for ( int i = 0; i < baseBodyCount; ++i )
+		{
+			int bodyId = baseBodyIds[i];
+			int root = IslandFindParent( parents, i );
+			int newIslandId = islandIds[rootMap[root]];
+
+			ref Body body = ref world.bodies[bodyId];
+			ref Island newIsland = ref world.islands[newIslandId];
+			body.islandId = newIslandId;
+			body.islandIndex = newIsland.bodies.count;
+
+			// Ensure the array has the correct capacity
+			B2_VALIDATE( newIsland.bodies.count < newIsland.bodies.capacity );
+			newIsland.bodies.Push( bodyId );
+		}
+
+		// Assign contacts to the island of their bodies
+		for ( int i = 0; i < baseContactCount; ++i )
+		{
+			ref ContactLink link = ref baseContacts[i];
+			ref Contact contact = ref world.contacts[link.contactId];
+			// Static bodies don't have an island id.
+			ref Body bodyA = ref world.bodies[link.bodyIdA];
+			ref Body bodyB = ref world.bodies[link.bodyIdB];
+			int targetIslandId = bodyA.islandId != NullIndex ? bodyA.islandId : bodyB.islandId;
+
+			ref Island targetIsland = ref world.islands[targetIslandId];
+			contact.islandId = targetIslandId;
+			contact.islandIndex = targetIsland.contacts.count;
+
+			// Ensure the array has the correct capacity
+			B2_VALIDATE( targetIsland.contacts.count < targetIsland.contacts.capacity );
+			targetIsland.contacts.Push( link );
+		}
+
+		// Assign joints to the island of their bodies
+		for ( int i = 0; i < baseJointCount; ++i )
+		{
+			ref JointLink link = ref baseJoints[i];
+			ref Joint joint = ref world.joints[link.jointId];
+			// Static bodies don't have an island id.
+			ref Body bodyA = ref world.bodies[link.bodyIdA];
+			ref Body bodyB = ref world.bodies[link.bodyIdB];
+			int targetIslandId = bodyA.islandId != NullIndex ? bodyA.islandId : bodyB.islandId;
+
+			ref Island targetIsland = ref world.islands[targetIslandId];
+			joint.islandId = targetIslandId;
+			joint.islandIndex = targetIsland.joints.count;
+
+			// Ensure the array has the correct capacity
+			B2_VALIDATE( targetIsland.joints.count < targetIsland.joints.capacity );
+			targetIsland.joints.Push( link );
+		}
+
+		// Destroy the base island
+		DestroyIsland( world, baseId );
+
+		// Free the detached arrays manually
+		Free( baseBodyIds, baseBodyCapacity );
+		Free( baseContacts, baseContactCapacity );
+		Free( baseJoints, baseJointCapacity );
+
+		// Free arena items in LIFO order
+		alloc.Free( islandIds );
+		alloc.Free( componentJointCounts );
+		alloc.Free( componentContactCounts );
+		alloc.Free( componentBodyCounts );
+		alloc.Free( rootMap );
+		alloc.Free( jointCounts );
+		alloc.Free( contactCounts );
+		alloc.Free( parents );
+	}
+
+	// Split an island because some contacts and/or joints have been removed.
+	// This is called during the constraint solve while islands are not being touched. This uses union find and
+	// touches a lot of memory, so it can be slow.
+	// Note: contacts/joints connected to static bodies must belong to an island but don't affect island connectivity
+	// Note: static bodies are never in an island
+	// Note: this task interacts with some allocators without locks under the assumption that no other tasks
+	// are interacting with these data structures.
+	internal static void SplitIslandTask( object? context )
+	{
+		ulong ticks = GetTicks();
+		World world = (World)context!;
+		B2_ASSERT( world.splitIslandId != NullIndex );
+
+		SplitIsland( world, world.splitIslandId );
+
+		world.splitIslandId = NullIndex;
+		world.profile.splitIslands += GetMilliseconds( ticks );
+	}
+
+#if BOX2D_VALIDATE
+	internal static void ValidateIsland( World world, int islandId )
+	{
+		if ( islandId == NullIndex )
+		{
+			return;
+		}
+
+		ref Island island = ref world.islands[islandId];
+		B2_ASSERT( island.islandId == islandId );
+		B2_ASSERT( island.setIndex != NullIndex );
+
+		{
+			B2_ASSERT( island.bodies.count > 0 );
+			B2_ASSERT( island.bodies.count <= GetIdCount( ref world.bodyIdPool ) );
+
+			for ( int i = 0; i < island.bodies.count; ++i )
 			{
-				_joints[i].InitVelocityConstraints(step);
+				ref Body body = ref world.bodies[island.bodies.data[i]];
+				B2_ASSERT( body.islandId == islandId );
+				B2_ASSERT( body.islandIndex == i );
+				B2_ASSERT( body.setIndex == island.setIndex );
 			}
+		}
 
-			// Solve velocity constraints.
-			for (int i = 0; i < step.VelocityIterations; ++i)
+		if ( island.contacts.count > 0 )
+		{
+			B2_ASSERT( island.contacts.count <= GetIdCount( ref world.contactIdPool ) );
+
+			for ( int i = 0; i < island.contacts.count; ++i )
 			{
-				for (int j = 0; j < _jointCount; ++j)
-				{
-					_joints[j].SolveVelocityConstraints(step);
-				}
-				contactSolver.SolveVelocityConstraints();
+				ref ContactLink link = ref island.contacts.data[i];
+				ref Contact contact = ref world.contacts[link.contactId];
+				B2_ASSERT( contact.setIndex == island.setIndex );
+				B2_ASSERT( contact.islandId == islandId );
+				B2_ASSERT( contact.islandIndex == i );
 			}
+		}
 
-			// Post-solve (store impulses for warm starting).
-			contactSolver.FinalizeVelocityConstraints();
+		if ( island.joints.count > 0 )
+		{
+			B2_ASSERT( island.joints.count <= GetIdCount( ref world.jointIdPool ) );
 
-			// Integrate positions.
-			for (int i = 0; i < _bodyCount; ++i)
+			for ( int i = 0; i < island.joints.count; ++i )
 			{
-				Body b = _bodies[i];
-
-				if (b.IsStatic())
-					continue;
-
-				// Check for large velocities.
-				Vector2 translation = step.Dt * b._linearVelocity;
-				if (Vector2.Dot(translation, translation) > Settings.MaxTranslationSquared)
-				{
-					b._linearVelocity = (Settings.MaxTranslation * step.Inv_Dt) * translation.Normalized();
-				}
-
-				float rotation = step.Dt * b._angularVelocity;
-				if (rotation * rotation > Settings.MaxRotationSquared)
-				{
-					if (rotation < 0.0)
-					{
-						b._angularVelocity = -step.Inv_Dt * Settings.MaxRotation;
-					}
-					else
-					{
-						b._angularVelocity = step.Inv_Dt * Settings.MaxRotation;
-					}
-				}
-
-				// Store positions for continuous collision.
-				b._sweep.C0 = b._sweep.C;
-				b._sweep.A0 = b._sweep.A;
-
-				// Integrate
-				b._sweep.C += step.Dt * b._linearVelocity;
-				b._sweep.A += step.Dt * b._angularVelocity;
-
-				// Compute new Transform
-				b.SynchronizeTransform();
-
-				// Note: shapes are synchronized later.
+				ref JointLink link = ref island.joints.data[i];
+				ref Joint joint = ref world.joints[link.jointId];
+				B2_ASSERT( joint.setIndex == island.setIndex );
+				B2_ASSERT( joint.islandId == islandId );
+				B2_ASSERT( joint.islandIndex == i );
 			}
+		}
+	}
 
-			// Iterate over constraints.
-			for (int i = 0; i < step.PositionIterations; ++i)
-			{
-				bool contactsOkay = contactSolver.SolvePositionConstraints(Settings.ContactBaumgarte);
-
-				bool jointsOkay = true;
-				for (int j = 0; j < _jointCount; ++j)
-				{
-					bool jointOkay = _joints[j].SolvePositionConstraints(Settings.ContactBaumgarte);
-					jointsOkay = jointsOkay && jointOkay;
-				}
-
-				if (contactsOkay && jointsOkay)
-				{
-					// Exit early if the position errors are small.
-					break;
-				}
-			}
-
-			Report(contactSolver._constraints);
-
-			if (allowSleep)
-			{
-				float minSleepTime = Settings.FLT_MAX;
-
-#if !TARGET_FLOAT32_IS_FIXED
-				float linTolSqr = Settings.LinearSleepTolerance * Settings.LinearSleepTolerance;
-				float angTolSqr = Settings.AngularSleepTolerance * Settings.AngularSleepTolerance;
-#endif
-
-				for (int i = 0; i < _bodyCount; ++i)
-				{
-					Body b = _bodies[i];
-					if (b._invMass == 0.0f)
-					{
-						continue;
-					}
-
-					if ((b._flags & Body.BodyFlags.AllowSleep) == 0)
-					{
-						b._sleepTime = 0.0f;
-						minSleepTime = 0.0f;
-					}
-
-					if ((b._flags & Body.BodyFlags.AllowSleep) == 0 ||
-#if TARGET_FLOAT32_IS_FIXED
-						Common.Math.Abs(b._angularVelocity) > Settings.AngularSleepTolerance ||
-						Common.Math.Abs(b._linearVelocity.X) > Settings.LinearSleepTolerance ||
-						Common.Math.Abs(b._linearVelocity.Y) > Settings.LinearSleepTolerance)
 #else
- b._angularVelocity * b._angularVelocity > angTolSqr ||
-						Vector2.Dot(b._linearVelocity, b._linearVelocity) > linTolSqr)
-#endif
-					{
-						b._sleepTime = 0.0f;
-						minSleepTime = 0.0f;
-					}
-					else
-					{
-						b._sleepTime += step.Dt;
-						minSleepTime = Common.Math.Min(minSleepTime, b._sleepTime);
-					}
-				}
 
-				if (minSleepTime >= Settings.TimeToSleep)
-				{
-					for (int i = 0; i < _bodyCount; ++i)
-					{
-						Body b = _bodies[i];
-						b._flags |= Body.BodyFlags.Sleep;
-						b._linearVelocity = Vector2.Zero;
-						b._angularVelocity = 0.0f;
-					}
-				}
-			}
-		}
-
-		public void SolveTOI(ref TimeStep subStep)
-		{
-			ContactSolver contactSolver = new ContactSolver(subStep, _contacts, _contactCount);
-
-			// No warm starting is needed for TOI events because warm
-			// starting impulses were applied in the discrete solver.
-
-			// Warm starting for joints is off for now, but we need to
-			// call this function to compute Jacobians.
-			for (int i = 0; i < _jointCount; ++i)
-			{
-				_joints[i].InitVelocityConstraints(subStep);
-			}
-
-			// Solve velocity constraints.
-			for (int i = 0; i < subStep.VelocityIterations; ++i)
-			{
-				contactSolver.SolveVelocityConstraints();
-				for (int j = 0; j < _jointCount; ++j)
-				{
-					_joints[j].SolveVelocityConstraints(subStep);
-				}
-			}
-
-			// Don't store the TOI contact forces for warm starting
-			// because they can be quite large.
-
-			// Integrate positions.
-			for (int i = 0; i < _bodyCount; ++i)
-			{
-				Body b = _bodies[i];
-
-				if (b.IsStatic())
-					continue;
-
-				// Check for large velocities.
-				Vector2 translation = subStep.Dt * b._linearVelocity;
-				if (Vector2.Dot(translation, translation) > Settings.MaxTranslationSquared)
-				{
-					b._linearVelocity = (Settings.MaxTranslation * subStep.Inv_Dt) * translation.Normalized();
-				}
-
-				float rotation = subStep.Dt * b._angularVelocity;
-				if (rotation * rotation > Settings.MaxRotationSquared)
-				{
-					if (rotation < 0.0)
-					{
-						b._angularVelocity = -subStep.Inv_Dt * Settings.MaxRotation;
-					}
-					else
-					{
-						b._angularVelocity = subStep.Inv_Dt * Settings.MaxRotation;
-					}
-				}
-
-				// Store positions for continuous collision.
-				b._sweep.C0 = b._sweep.C;
-				b._sweep.A0 = b._sweep.A;
-
-				// Integrate
-				b._sweep.C += subStep.Dt * b._linearVelocity;
-				b._sweep.A += subStep.Dt * b._angularVelocity;
-
-				// Compute new Transform
-				b.SynchronizeTransform();
-
-				// Note: shapes are synchronized later.
-			}
-
-			// Solve position constraints.
-			const float k_toiBaumgarte = 0.75f;
-			for (int i = 0; i < subStep.PositionIterations; ++i)
-			{
-				bool contactsOkay = contactSolver.SolvePositionConstraints(k_toiBaumgarte);
-				bool jointsOkay = true;
-				for (int j = 0; j < _jointCount; ++j)
-				{
-					bool jointOkay = _joints[j].SolvePositionConstraints(k_toiBaumgarte);
-					jointsOkay = jointsOkay && jointOkay;
-				}
-
-				if (contactsOkay && jointsOkay)
-				{
-					break;
-				}
-			}
-
-			Report(contactSolver._constraints);
-		}
-
-		public void Add(Body body)
-		{
-			Box2DNetDebug.Assert(_bodyCount < _bodyCapacity);
-			body._islandIndex = _bodyCount;
-			_bodies[_bodyCount++] = body;
-		}
-
-		public void Add(Contact contact)
-		{
-			Box2DNetDebug.Assert(_contactCount < _contactCapacity);
-			_contacts[_contactCount++] = contact;
-		}
-
-		public void Add(Joint joint)
-		{
-			Box2DNetDebug.Assert(_jointCount < _jointCapacity);
-			_joints[_jointCount++] = joint;
-		}
-
-		public void Report(ContactConstraint[] constraints)
-		{
-			if (_listener == null)
-			{
-				return;
-			}
-
-			for (int i = 0; i < _contactCount; ++i)
-			{
-				Contact c = _contacts[i];
-				ContactConstraint cc = constraints[i];
-				ContactImpulse impulse = new ContactImpulse();
-				for (int j = 0; j < cc.PointCount; ++j)
-				{
-					impulse.normalImpulses[j] = cc.Points[j].NormalImpulse;
-					impulse.tangentImpulses[j] = cc.Points[j].TangentImpulse;
-				}
-
-				_listener.PostSolve(c, impulse);
-			}
-		}
+	internal static void ValidateIsland( World world, int islandId )
+	{
 	}
+#endif
+
 }

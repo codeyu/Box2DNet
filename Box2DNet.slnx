@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/examples/">
+    <Project Path="examples/Testbed/Testbed.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Box2DNet/Box2DNet.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Box2DNet.Tests/Box2DNet.Tests.csproj" />
+  </Folder>
+</Solution>

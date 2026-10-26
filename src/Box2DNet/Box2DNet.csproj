@@ -1,11 +1,28 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Box2DNet</RootNamespace>
+    <AssemblyName>Box2DNet</AssemblyName>
+    <!-- annotations only: the ported internals mirror C pointer semantics -->
+    <Nullable>annotations</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- ref arguments for in parameters mirror the C pointer arguments -->
+    <NoWarn>$(NoWarn);CS9191</NoWarn>
+    <Version>3.2.0</Version>
+    <Description>A C# port of Box2D v3.2, the 2D physics engine by Erin Catto.</Description>
+    <Authors>codeyu</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <DefineConstants>$(DefineConstants);BOX2D_VALIDATE</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Numerics.Vectors" Version="4.5.0" />
+    <InternalsVisibleTo Include="Box2DNet.Tests" />
   </ItemGroup>
 
 </Project>

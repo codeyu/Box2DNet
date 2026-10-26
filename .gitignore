@@ -252,3 +252,6 @@ paket-files/
 *.sln.iml
 
 .DS_Store
+
+# Dear ImGui window layout
+imgui.ini

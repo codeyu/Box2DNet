@@ -2,14 +2,23 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <!-- the ImGui and GLFW bindings use pointers -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>Box2DNet.Testbed</RootNamespace>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hexa.NET.ImGui" Version="2.2.9" />
+    <PackageReference Include="Hexa.NET.ImGui.Backends" Version="1.0.18" />
+    <PackageReference Include="Hexa.NET.ImGui.Backends.GLFW" Version="1.0.18" />
+    <PackageReference Include="Hexa.NET.GLFW" Version="1.0.5" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\Box2DNet\Box2DNet.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.7.0.1708" />
-    <PackageReference Include="MonoGame.Framework.MacOS" Version="3.7.0.1708" />
-    <PackageReference Include="MonoGame.Framework.OpenGL" Version="3.7.0.1708" />
-  </ItemGroup>
+
 </Project>
